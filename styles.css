@@ -1,0 +1,199 @@
+/* ==========================================================================
+   PALETA SYNOVA & VARIÁVEIS DE ESTILO
+   Blue Love: #000679 | Red Wine: #5d0b14 | Kiss: #90333b
+   Sand: #dac9b5      | Olive: #626b2d    | Pantone Dark Olive: #373b1f
+   Cream Light: #fbf2d5
+   ========================================================================== */
+
+:root {
+  --color-wine: #5d0b14;
+  --color-kiss: #90333b;
+  --color-bluelove: #000679;
+  --color-sand: #dac9b5;
+  --color-cream: #fbf2d5;
+  --color-olive: #626b2d;
+  --color-darkolive: #373b1f;
+  --line-height: 32px;
+}
+
+/* Botões da Barra de Ferramentas do Editor */
+.toolbar-btn {
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: var(--color-darkolive);
+  border: 1px solid rgba(55, 59, 31, 0.2);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn:hover {
+  background-color: var(--color-wine);
+  color: var(--color-cream);
+  border-color: var(--color-wine);
+}
+
+/* Capas Personalizadas dos Cadernos */
+.cover-wine {
+  background: linear-gradient(135deg, #5d0b14 0%, #3d060c 100%);
+  color: #fbf2d5;
+}
+
+.cover-kiss {
+  background: linear-gradient(135deg, #90333b 0%, #5d0b14 100%);
+  color: #fbf2d5;
+}
+
+.cover-bluelove {
+  background: linear-gradient(135deg, #000679 0%, #000342 100%);
+  color: #fbf2d5;
+}
+
+.cover-olive {
+  background: linear-gradient(135deg, #626b2d 0%, #373b1f 100%);
+  color: #fbf2d5;
+}
+
+.cover-darkolive {
+  background: linear-gradient(135deg, #373b1f 0%, #1f2211 100%);
+  color: #dac9b5;
+}
+
+.cover-sand {
+  background: linear-gradient(135deg, #dac9b5 0%, #bfa88f 100%);
+  color: #5d0b14;
+}
+
+/* Espiral lateral estética nos cards de caderno */
+.notebook-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background-color: rgba(0, 0, 0, 0.25);
+  border-right: 2px dashed rgba(255, 255, 255, 0.25);
+}
+
+/* ==========================================================================
+   FOLHA DO CADERNO (PAUTADA E SEM PAUTA)
+   ========================================================================== */
+
+.paper-sheet {
+  background-color: #ffffff;
+  position: relative;
+}
+
+/* Margem vermelha/vinho vertical clássica */
+.notebook-margin-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 42px;
+  width: 2px;
+  background-color: rgba(144, 51, 59, 0.35); /* Tom Kiss suave */
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Área de escrita com alinhamento exato às linhas */
+.paper-editor {
+  min-height: 980px;
+  padding-top: 8px;
+  padding-bottom: 64px;
+  line-height: var(--line-height);
+  font-size: 1.05rem;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  position: relative;
+  z-index: 2;
+}
+
+/* Quando o caderno é PAUTADO:
+   Linhas horizontais perfeitamente sincronizadas com line-height: 32px */
+.paper-pautado {
+  background-color: #fffdf7;
+}
+
+.paper-pautado .paper-editor {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 31px,
+    rgba(93, 11, 20, 0.18) 31px,
+    rgba(93, 11, 20, 0.18) 32px
+  );
+  background-attachment: local;
+  line-height: 32px;
+}
+
+/* Imagens inseridas dentro do caderno */
+.paper-editor img {
+  max-width: 85%;
+  height: auto;
+  border-radius: 6px;
+  margin: 12px 0;
+  border: 2px solid var(--color-sand);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+/* ==========================================================================
+   POST-ITS FLUTUANTES (DRAG AND DROP)
+   ========================================================================== */
+
+.post-it-note {
+  pointer-events: auto;
+  position: absolute;
+  width: 210px;
+  min-height: 170px;
+  padding: 10px 12px 14px 12px;
+  border-radius: 2px 2px 14px 2px;
+  box-shadow: 3px 6px 15px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  border-top: 6px solid rgba(93, 11, 20, 0.4);
+}
+
+.post-it-note:hover {
+  box-shadow: 5px 10px 22px rgba(0, 0, 0, 0.28);
+}
+
+.post-it-header {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed rgba(55, 59, 31, 0.25);
+  user-select: none;
+}
+
+.post-it-header:active {
+  cursor: grabbing;
+}
+
+.post-it-body {
+  flex: 1;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.35rem;
+  color: #1c1917;
+  word-break: break-word;
+}
+
+/* Animação suave dos Modais */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.18s ease-out forwards;
+}

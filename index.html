@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mochila de Cadernos — Carla Vicktória</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            wine: '#5d0b14',
+            kiss: '#90333b',
+            sand: '#dac9b5',
+            cream: '#fbf2d5',
+            olive: '#626b2d',
+            darkolive: '#373b1f',
+            bluelove: '#000679'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Merriweather', 'Georgia', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Vector Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- HTML2Canvas & jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- CSS Customizado -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-sand text-darkolive font-sans min-h-screen flex flex-col selection:bg-kiss selection:text-white">
+
+  <!-- ================= NAVBAR GLOBAL ================= -->
+  <header class="bg-wine text-cream shadow-lg border-b border-kiss/40 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-kiss rounded-lg shadow-inner flex items-center justify-center">
+          <i data-lucide="book-marked" class="w-6 h-6 text-cream"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-wide leading-none">MOCHILA DE CADERNOS</h1>
+          <span class="text-xs text-sand/80 font-medium">Carla Vicktória • RA: 22606839 • @cv.palmiere</span>
+        </div>
+      </div>
+
+      <!-- Ações da Home -->
+      <div id="navHomeActions" class="flex items-center space-x-3">
+        <button onclick="openModal('tipoModal')" class="flex items-center space-x-2 px-3.5 py-2 rounded-lg bg-darkolive hover:bg-olive text-cream text-sm font-medium transition shadow-sm border border-cream/10">
+          <i data-lucide="tags" class="w-4 h-4"></i>
+          <span>Gerenciar Tipos</span>
+        </button>
+        <button onclick="openModal('bookModal')" class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-kiss hover:bg-kiss/80 text-white text-sm font-semibold transition shadow-md">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Novo Caderno</span>
+        </button>
+      </div>
+
+      <!-- Ações do Editor (Oculto por padrão) -->
+      <div id="navEditorActions" class="hidden items-center space-x-3">
+        <div id="saveStatus" class="hidden sm:flex items-center space-x-1.5 text-xs text-sand/90 bg-black/20 px-3 py-1.5 rounded-full">
+          <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-olive"></i>
+          <span>Salvo na memória</span>
+        </div>
+
+        <button onclick="backHome()" class="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-sand/10 hover:bg-sand/20 text-cream text-sm font-medium transition">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Estante</span>
+        </button>
+
+        <button onclick="exportPDF()" id="btnExportPDF" class="flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-olive hover:bg-darkolive text-white text-sm font-semibold transition shadow-md border border-cream/20">
+          <i data-lucide="file-down" class="w-4 h-4"></i>
+          <span>Exportar PDF</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= VIEW 1: ESTANTE DE CADERNOS ================= -->
+  <main id="homeView" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Barra de Filtro e Busca -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-cream/70 p-4 rounded-xl border border-darkolive/15 shadow-sm">
+      <div>
+        <h2 class="text-2xl font-bold text-wine flex items-center gap-2">
+          <i data-lucide="library" class="w-6 h-6 text-kiss"></i>
+          <span>Minha Estante Digital</span>
+        </h2>
+        <p class="text-sm text-darkolive/80">Selecione um caderno para abrir o editor ou filtre por categoria.</p>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div class="relative">
+          <i data-lucide="filter" class="w-4 h-4 text-darkolive/60 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <select id="filterTipo" onchange="renderBooks()" class="pl-9 pr-8 py-2 bg-white border border-darkolive/20 rounded-lg text-sm font-medium text-darkolive focus:outline-none focus:ring-2 focus:ring-wine">
+            <option value="TODOS">Todos os Tipos</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid de Cadernos -->
+    <div id="booksGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <!-- Renderizado via JS -->
+    </div>
+  </main>
+
+  <!-- ================= VIEW 2: EDITOR DO CADERNO ================= -->
+  <section id="editorView" class="hidden flex-1 flex flex-col bg-darkolive/90">
+    
+    <!-- Barra de Ferramentas Rica (Sticky) -->
+    <div class="bg-cream border-b border-sand shadow-md sticky top-16 z-20 px-4 py-2.5">
+      <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        
+        <!-- Info do Caderno Aberto -->
+        <div class="flex items-center space-x-2 border-r border-darkolive/20 pr-4">
+          <span id="editorBookBadge" class="w-3.5 h-3.5 rounded-full inline-block"></span>
+          <div>
+            <h3 id="editorBookTitle" class="text-sm font-bold text-wine leading-tight">Nome do Caderno</h3>
+            <span id="editorBookType" class="text-[11px] font-semibold uppercase tracking-wider text-olive block">Matéria</span>
+          </div>
+        </div>
+
+        <!-- Ferramentas de Formatação de Texto -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          
+          <!-- Negrito, Itálico, Sublinhado -->
+          <button onclick="formatDoc('bold')" title="Negrito (Ctrl+B)" class="toolbar-btn">
+            <i data-lucide="bold" class="w-4 h-4"></i>
+          </button>
+          <button onclick="formatDoc('italic')" title="Itálico (Ctrl+I)" class="toolbar-btn">
+            <i data-lucide="italic" class="w-4 h-4"></i>
+          </button>
+          <button onclick="formatDoc('underline')" title="Sublinhado (Ctrl+U)" class="toolbar-btn">
+            <i data-lucide="underline" class="w-4 h-4"></i>
+          </button>
+
+          <div class="h-5 w-px bg-darkolive/20 mx-1"></div>
+
+          <!-- Cor do Texto -->
+          <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded-lg border border-darkolive/20" title="Cor da Caneta / Texto">
+            <i data-lucide="baseline" class="w-4 h-4 text-wine"></i>
+            <button onclick="setTextColor('#1c1917')" class="w-4 h-4 rounded-full bg-stone-900 border border-black/20 hover:scale-110 transition" title="Preto"></button>
+            <button onclick="setTextColor('#000679')" class="w-4 h-4 rounded-full bg-bluelove border border-black/20 hover:scale-110 transition" title="Blue Love"></button>
+            <button onclick="setTextColor('#5d0b14')" class="w-4 h-4 rounded-full bg-wine border border-black/20 hover:scale-110 transition" title="Red Wine"></button>
+            <button onclick="setTextColor('#626b2d')" class="w-4 h-4 rounded-full bg-olive border border-black/20 hover:scale-110 transition" title="Olive"></button>
+            <input type="color" onchange="setTextColor(this.value)" class="w-5 h-5 cursor-pointer bg-transparent border-0 p-0" title="Outra cor">
+          </div>
+
+          <!-- Marca-Texto (Highlighter) -->
+          <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded-lg border border-darkolive/20" title="Marca-Texto">
+            <i data-lucide="highlighter" class="w-4 h-4 text-kiss"></i>
+            <button onclick="setHighlight('#fef08a')" class="w-4 h-4 rounded bg-yellow-200 border border-black/20 hover:scale-110 transition" title="Marca-texto Amarelo"></button>
+            <button onclick="setHighlight('#bbf7d0')" class="w-4 h-4 rounded bg-green-200 border border-black/20 hover:scale-110 transition" title="Marca-texto Verde"></button>
+            <button onclick="setHighlight('#fbcfe8')" class="w-4 h-4 rounded bg-pink-200 border border-black/20 hover:scale-110 transition" title="Marca-texto Rosa"></button>
+            <button onclick="setHighlight('#dac9b5')" class="w-4 h-4 rounded bg-sand border border-black/20 hover:scale-110 transition" title="Marca-texto Sand"></button>
+            <button onclick="setHighlight('transparent')" class="text-xs text-darkolive/70 hover:text-wine px-1" title="Remover Marca-texto">
+              <i data-lucide="eraser" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="h-5 w-px bg-darkolive/20 mx-1"></div>
+
+          <!-- Inserir Post-it -->
+          <div class="relative group">
+            <button onclick="addPostIt('#fbf2d5')" class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-wine text-cream hover:bg-kiss text-xs font-semibold transition shadow-sm">
+              <i data-lucide="sticky-note" class="w-4 h-4"></i>
+              <span>+ Post-it</span>
+            </button>
+          </div>
+
+          <!-- Inserir Imagem -->
+          <label class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-olive text-cream hover:bg-darkolive text-xs font-semibold transition shadow-sm cursor-pointer">
+            <i data-lucide="image-plus" class="w-4 h-4"></i>
+            <span>+ Imagem</span>
+            <input type="file" id="imageInput" accept="image/*" onchange="insertImage(event)" class="hidden">
+          </label>
+        </div>
+
+        <!-- Controle de Paginação -->
+        <div class="flex items-center space-x-1.5 bg-sand/60 px-2.5 py-1 rounded-lg border border-darkolive/15">
+          <button onclick="prevPage()" id="btnPrevPage" class="p-1 rounded hover:bg-white text-darkolive disabled:opacity-40 transition" title="Página Anterior">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <span id="pageIndicator" class="text-xs font-bold text-wine px-2">Página 1 de 1</span>
+          <button onclick="nextPage()" id="btnNextPage" class="p-1 rounded hover:bg-white text-darkolive disabled:opacity-40 transition" title="Próxima Página">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+          <div class="h-4 w-px bg-darkolive/20 mx-1"></div>
+          <button onclick="newPage()" class="flex items-center space-x-1 text-xs font-semibold bg-wine text-cream px-2 py-1 rounded hover:bg-kiss transition" title="Adicionar Nova Página">
+            <i data-lucide="file-plus-2" class="w-3.5 h-3.5"></i>
+            <span>Nova</span>
+          </button>
+          <button onclick="deleteCurrentPage()" class="p-1 text-wine hover:bg-kiss/20 rounded transition" title="Excluir página atual">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Área de Trabalho / Mesa com a Folha -->
+    <div class="flex-1 overflow-y-auto py-8 px-4 flex justify-center items-start">
+      
+      <!-- Container da Folha (Alvo de Exportação PDF) -->
+      <div id="paperContainer" class="paper-sheet relative w-full max-w-[820px] min-h-[1080px] rounded-sm shadow-2xl transition-all">
+        
+        <!-- Margem vertical clássica de caderno -->
+        <div class="notebook-margin-line"></div>
+
+        <!-- Cabeçalho da Folha -->
+        <div class="paper-header flex items-center justify-between px-12 pt-6 pb-2 border-b border-kiss/30">
+          <div class="flex items-center space-x-2 text-xs text-darkolive/70 font-medium">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-kiss"></i>
+            <span>Data:</span>
+            <input type="text" id="pageDate" placeholder="__/__/____" onchange="saveCurrentPage()" class="bg-transparent border-b border-darkolive/30 focus:border-wine focus:outline-none w-24 text-darkolive font-semibold">
+          </div>
+          <div class="text-xs font-bold text-wine/80 tracking-widest uppercase" id="sheetPageNumber">PÁG. 01</div>
+        </div>
+
+        <!-- Área de Texto Editável -->
+        <div id="paperContent" contenteditable="true" spellcheck="true" class="paper-editor outline-none px-12 font-serif text-stone-900"></div>
+
+        <!-- Camada de Post-its Flutuantes -->
+        <div id="postItsLayer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MODAL 1: GERENCIAR TIPOS ================= -->
+  <div id="tipoModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-cream border-2 border-wine rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-fade-in">
+      <div class="bg-wine text-cream px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="tags" class="w-5 h-5 text-sand"></i>
+          <h3 class="font-bold text-lg">Tipos de Caderno</h3>
+        </div>
+        <button onclick="closeModal('tipoModal')" class="text-sand hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <label class="block text-xs font-bold uppercase tracking-wider text-darkolive mb-2">Cadastrar Novo Tipo</label>
+        <div class="flex space-x-2">
+          <input type="text" id="inputTipoNome" placeholder="Ex.: Engenharia de Software, Diário..." class="flex-1 px-3.5 py-2 rounded-lg bg-white border border-darkolive/30 text-darkolive focus:outline-none focus:ring-2 focus:ring-wine text-sm">
+          <button onclick="addTipo()" class="px-4 py-2 bg-olive hover:bg-darkolive text-white font-semibold rounded-lg text-sm flex items-center space-x-1 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Adicionar</span>
+          </button>
+        </div>
+
+        <div class="mt-6">
+          <span class="block text-xs font-bold uppercase tracking-wider text-darkolive/70 mb-2">Tipos Cadastrados</span>
+          <ul id="tiposList" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <!-- Renderizado via JS -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: CRIAR NOVO CADERNO ================= -->
+  <div id="bookModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-cream border-2 border-wine rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-fade-in">
+      <div class="bg-wine text-cream px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="book-plus" class="w-5 h-5 text-sand"></i>
+          <h3 class="font-bold text-lg">Criar Novo Caderno</h3>
+        </div>
+        <button onclick="closeModal('bookModal')" class="text-sand hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Nome -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-darkolive mb-1">Título do Caderno *</label>
+          <input type="text" id="inputBookNome" placeholder="Ex.: Arquitetura de Software" class="w-full px-3.5 py-2.5 rounded-lg bg-white border border-darkolive/30 text-darkolive focus:outline-none focus:ring-2 focus:ring-wine text-sm font-medium">
+        </div>
+
+        <!-- Tipo -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-darkolive mb-1">Tipo / Categoria *</label>
+          <select id="selectBookTipo" class="w-full px-3.5 py-2.5 rounded-lg bg-white border border-darkolive/30 text-darkolive focus:outline-none focus:ring-2 focus:ring-wine text-sm font-medium"></select>
+        </div>
+
+        <!-- Escolha da Capa (Paleta Oficial) -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-darkolive mb-2">Cor da Capa (Paleta Synova)</label>
+          <div class="grid grid-cols-3 gap-2.5" id="coverSelector">
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-wine" checked class="peer hidden">
+              <div class="p-3 rounded-lg bg-wine text-cream text-xs font-bold text-center border-2 border-transparent peer-checked:border-darkolive peer-checked:ring-2 peer-checked:ring-wine transition">
+                Red Wine
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-kiss" class="peer hidden">
+              <div class="p-3 rounded-lg bg-kiss text-cream text-xs font-bold text-center border-2 border-transparent peer-checked:border-darkolive peer-checked:ring-2 peer-checked:ring-kiss transition">
+                Kiss
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-bluelove" class="peer hidden">
+              <div class="p-3 rounded-lg bg-bluelove text-cream text-xs font-bold text-center border-2 border-transparent peer-checked:border-darkolive peer-checked:ring-2 peer-checked:ring-bluelove transition">
+                Blue Love
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-olive" class="peer hidden">
+              <div class="p-3 rounded-lg bg-olive text-cream text-xs font-bold text-center border-2 border-transparent peer-checked:border-darkolive peer-checked:ring-2 peer-checked:ring-olive transition">
+                Olive
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-darkolive" class="peer hidden">
+              <div class="p-3 rounded-lg bg-darkolive text-cream text-xs font-bold text-center border-2 border-transparent peer-checked:border-wine peer-checked:ring-2 peer-checked:ring-darkolive transition">
+                Pantone Dark
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookCover" value="cover-sand" class="peer hidden">
+              <div class="p-3 rounded-lg bg-sand text-darkolive text-xs font-bold text-center border-2 border-darkolive/30 peer-checked:border-wine peer-checked:ring-2 peer-checked:ring-wine transition">
+                Sand Classic
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Folha Pautada ou Lisa -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-darkolive mb-2">Estilo do Miolo (Folha)</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="cursor-pointer">
+              <input type="radio" name="bookPauta" value="true" checked class="peer hidden">
+              <div class="flex items-center space-x-2.5 p-3 rounded-lg bg-white border-2 border-darkolive/20 peer-checked:border-wine peer-checked:bg-wine/5 transition">
+                <i data-lucide="align-justify" class="w-5 h-5 text-wine"></i>
+                <div>
+                  <span class="block text-sm font-bold text-darkolive">Pautado</span>
+                  <span class="block text-[11px] text-darkolive/70">Com linhas guias</span>
+                </div>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="bookPauta" value="false" class="peer hidden">
+              <div class="flex items-center space-x-2.5 p-3 rounded-lg bg-white border-2 border-darkolive/20 peer-checked:border-wine peer-checked:bg-wine/5 transition">
+                <i data-lucide="square" class="w-5 h-5 text-olive"></i>
+                <div>
+                  <span class="block text-sm font-bold text-darkolive">Sem Pauta</span>
+                  <span class="block text-[11px] text-darkolive/70">Fundo limpo em branco</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end space-x-2 border-t border-darkolive/15">
+          <button onclick="closeModal('bookModal')" class="px-4 py-2 rounded-lg text-sm font-medium text-darkolive hover:bg-sand/50 transition">
+            Cancelar
+          </button>
+          <button onclick="createBook()" class="px-5 py-2 rounded-lg text-sm font-bold bg-wine hover:bg-kiss text-cream shadow-md flex items-center space-x-1.5 transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Criar Caderno</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Principal -->
+  <script src="app.js"></script>
+</body>
+</html>
