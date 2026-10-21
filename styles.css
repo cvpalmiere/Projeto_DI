@@ -1,199 +1,150 @@
-/* ==========================================================================
-   PALETA SYNOVA & VARIÁVEIS DE ESTILO
-   Blue Love: #000679 | Red Wine: #5d0b14 | Kiss: #90333b
-   Sand: #dac9b5      | Olive: #626b2d    | Pantone Dark Olive: #373b1f
-   Cream Light: #fbf2d5
-   ========================================================================== */
-
+/* Define a paleta como variáveis CSS para trocar claro/escuro mudando só uma classe, evitando duplicar estilos (H4 consistência). */
 :root {
-  --color-wine: #5d0b14;
-  --color-kiss: #90333b;
-  --color-bluelove: #000679;
-  --color-sand: #dac9b5;
-  --color-cream: #fbf2d5;
-  --color-olive: #626b2d;
-  --color-darkolive: #373b1f;
-  --line-height: 32px;
+  --bg: #F4EBDA;
+  --surface: #FBF5E8;
+  --paper: #FFFCF4;
+  --ink: #3A2A1C;
+  --muted: #6B5742;
+  --line: #D3C2A4;
+  --accent: #D95122;
+  --accent-strong: #BF4318;
+  --honey: #EAB05C;
+  --sage: #B6CFB9;
+  --latte: #896645;
+  --sage-soft: #DDE8DB;
+  --row: 32px;
+  color-scheme: light;
 }
 
-/* Botões da Barra de Ferramentas do Editor */
-.toolbar-btn {
-  padding: 0.4rem;
-  border-radius: 0.5rem;
-  background-color: #ffffff;
-  color: var(--color-darkolive);
-  border: 1px solid rgba(55, 59, 31, 0.2);
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* Redefine as variáveis no modo escuro usando #121212 e #2B2B2B para conforto visual noturno sem refazer componentes (H8 minimalismo). */
+.dark {
+  --bg: #121212;
+  --surface: #2B2B2B;
+  --paper: #242424;
+  --ink: #F5F5F5;
+  --muted: #B8B2A8;
+  --line: #4B4B4B;
+  --sage-soft: #26322A;
+  color-scheme: dark;
 }
 
-.toolbar-btn:hover {
-  background-color: var(--color-wine);
-  color: var(--color-cream);
-  border-color: var(--color-wine);
-}
+/* Deixa a rolagem suave e reserva espaço do cabeçalho fixo para os títulos não ficarem escondidos ao navegar por âncoras (H1 visibilidade). */
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
 
-/* Capas Personalizadas dos Cadernos */
-.cover-wine {
-  background: linear-gradient(135deg, #5d0b14 0%, #3d060c 100%);
-  color: #fbf2d5;
-}
+/* Aplica fundo, cor e fonte base com transição curta para a troca de tema parecer fluida e não brusca (H8 estética). */
+body { background: var(--bg); color: var(--ink); font-family: 'Montserrat', Arial, sans-serif; transition: background .25s, color .25s; }
 
-.cover-kiss {
-  background: linear-gradient(135deg, #90333b 0%, #5d0b14 100%);
-  color: #fbf2d5;
-}
+/* Garante que o atributo hidden sempre esconda o elemento mesmo com classes de display, para as telas trocarem sem sobras (H5 prevenção de erros). */
+[hidden] { display: none !important; }
 
-.cover-bluelove {
-  background: linear-gradient(135deg, #000679 0%, #000342 100%);
-  color: #fbf2d5;
-}
+/* Desliga animações para quem pede menos movimento no sistema, respeitando acessibilidade e evitando desconforto (H7 flexibilidade). */
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
 
-.cover-olive {
-  background: linear-gradient(135deg, #626b2d 0%, #373b1f 100%);
-  color: #fbf2d5;
-}
+/* Cria utilitários de cor ligados ao tema para o Tailwind CDN não precisar conhecer a paleta (H4 consistência). */
+.bg-surface { background: var(--surface); }
+.bg-paper { background: var(--paper); }
+.bg-sage-soft { background: var(--sage-soft); }
+.text-muted { color: var(--muted); }
+.border-line { border-color: var(--line); }
 
-.cover-darkolive {
-  background: linear-gradient(135deg, #373b1f 0%, #1f2211 100%);
-  color: #dac9b5;
-}
+/* Padroniza o tamanho e o traço dos ícones SVG para todos parecerem da mesma família (H4 consistência). */
+.icon { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
-.cover-sand {
-  background: linear-gradient(135deg, #dac9b5 0%, #bfa88f 100%);
-  color: #5d0b14;
-}
+/* Desenha o quadrado verde que abriga o ícone de cada recurso para criar um ponto de reconhecimento visual rápido (H6 reconhecimento). */
+.chip { display: inline-grid; place-items: center; width: 3rem; height: 3rem; border-radius: 1rem; background: var(--sage); color: #2B3A2E; }
 
-/* Espiral lateral estética nos cards de caderno */
-.notebook-spine {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 18px;
-  background-color: rgba(0, 0, 0, 0.25);
-  border-right: 2px dashed rgba(255, 255, 255, 0.25);
-}
+/* Define o botão base com área de toque ampla e leve elevação no hover para indicar que é clicável (H4 consistência, H1 visibilidade). */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .7rem 1.3rem; border-radius: 999px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: transform .15s, background .2s, border-color .2s, opacity .2s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
 
-/* ==========================================================================
-   FOLHA DO CADERNO (PAUTADA E SEM PAUTA)
-   ========================================================================== */
+/* Marca a ação principal com a cor Grenadine para o usuário achar o caminho principal sem pensar (H6 reconhecimento). */
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
 
-.paper-sheet {
-  background-color: #ffffff;
-  position: relative;
-}
+/* Cria o botão secundário só com contorno para diferenciar ações de menor peso da principal (H8 minimalismo). */
+.btn-ghost { border: 1.5px solid var(--line); color: var(--ink); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--latte); }
 
-/* Margem vermelha/vinho vertical clássica */
-.notebook-margin-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 42px;
-  width: 2px;
-  background-color: rgba(144, 51, 59, 0.35); /* Tom Kiss suave */
-  pointer-events: none;
-  z-index: 1;
-}
+/* Deixa o botão desativado visivelmente apagado e sem clique para o usuário entender que a ação não está disponível (H1 visibilidade). */
+.btn:disabled { opacity: .4; cursor: not-allowed; }
 
-/* Área de escrita com alinhamento exato às linhas */
-.paper-editor {
-  min-height: 980px;
-  padding-top: 8px;
-  padding-bottom: 64px;
-  line-height: var(--line-height);
-  font-size: 1.05rem;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  position: relative;
-  z-index: 2;
-}
+/* Mostra um spinner dentro do botão enquanto a ação roda, avisando que o sistema está trabalhando e bloqueando cliques duplos (H1, H5). */
+.btn[aria-busy="true"] { pointer-events: none; opacity: .85; }
+.btn[aria-busy="true"]::before { content: ""; width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Quando o caderno é PAUTADO:
-   Linhas horizontais perfeitamente sincronizadas com line-height: 32px */
-.paper-pautado {
-  background-color: #fffdf7;
-}
+/* Estiliza os campos com borda clara e foco em Beeswax para o usuário ver onde está digitando (H1 visibilidade). */
+.input { width: 100%; min-height: 2.9rem; padding: .75rem 1rem; border-radius: .9rem; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; }
+.input:focus { outline: 2px solid var(--honey); border-color: var(--honey); }
 
-.paper-pautado .paper-editor {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 31px,
-    rgba(93, 11, 20, 0.18) 31px,
-    rgba(93, 11, 20, 0.18) 32px
-  );
-  background-attachment: local;
-  line-height: 32px;
-}
+/* Pinta o campo inválido com a cor de erro para o problema ser localizado sem ler o texto (H9 diagnóstico de erros). */
+.input[aria-invalid="true"] { border-color: var(--accent); }
 
-/* Imagens inseridas dentro do caderno */
-.paper-editor img {
-  max-width: 85%;
-  height: auto;
-  border-radius: 6px;
-  margin: 12px 0;
-  border: 2px solid var(--color-sand);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  display: block;
-}
+/* Reserva a altura da mensagem de erro e a colore para a tela não pular quando o texto aparece (H9, H8). */
+.field-error { min-height: 1.25rem; margin-top: .25rem; font-size: .8rem; font-weight: 600; color: var(--accent); }
 
-/* ==========================================================================
-   POST-ITS FLUTUANTES (DRAG AND DROP)
-   ========================================================================== */
+/* Mantém o foco do teclado sempre visível com contorno forte, ajudando quem navega sem mouse (H7 eficiência e acessibilidade). */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.post-it-note {
-  pointer-events: auto;
-  position: absolute;
-  width: 210px;
-  min-height: 170px;
-  padding: 10px 12px 14px 12px;
-  border-radius: 2px 2px 14px 2px;
-  box-shadow: 3px 6px 15px rgba(0, 0, 0, 0.22);
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-  border-top: 6px solid rgba(93, 11, 20, 0.4);
-}
+/* Posiciona o botão de mostrar senha dentro do campo para o usuário conferir o que digitou sem sair do lugar (H3 controle, H5 erros). */
+.pass-wrap { position: relative; }
+.pass-wrap .input { padding-right: 3rem; }
+.pass-toggle { position: absolute; right: .35rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 999px; color: var(--muted); cursor: pointer; }
+.pass-toggle:hover { color: var(--ink); }
+.pass-toggle[aria-pressed="true"] .i-eye, .pass-toggle[aria-pressed="false"] .i-eyeoff { display: none; }
 
-.post-it-note:hover {
-  box-shadow: 5px 10px 22px rgba(0, 0, 0, 0.28);
-}
+/* Troca o ícone de lua por sol conforme o tema ativo para o botão sempre mostrar a ação disponível (H1 visibilidade). */
+.dark .i-moon, html:not(.dark) .i-sun { display: none; }
 
-.post-it-header {
-  cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 6px;
-  margin-bottom: 6px;
-  border-bottom: 1px dashed rgba(55, 59, 31, 0.25);
-  user-select: none;
-}
+/* Destaca a aba ativa da tela de acesso para o usuário saber em qual formulário está (H1 visibilidade). */
+.tab { flex: 1; padding: .65rem 1rem; border-radius: 999px; font-weight: 600; font-size: .9rem; text-align: center; }
+.tab[aria-current="true"] { background: var(--accent); color: #fff; }
 
-.post-it-header:active {
-  cursor: grabbing;
-}
+/* Esconde o link de pular fora da tela e o revela ao focar, oferecendo atalho para quem usa teclado (H7 eficiência). */
+.skip-link { position: absolute; left: -999px; top: 0; z-index: 60; padding: .75rem 1rem; border-radius: 0 0 .75rem 0; background: var(--accent); color: #fff; font-weight: 700; }
+.skip-link:focus { left: 0; }
 
-.post-it-body {
-  flex: 1;
-  outline: none;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  line-height: 1.35rem;
-  color: #1c1917;
-  word-break: break-word;
-}
+/* Exibe uma notificação flutuante que aparece e some sozinha para confirmar ações sem interromper o fluxo (H1 visibilidade). */
+.toast { position: fixed; left: 50%; bottom: 1.5rem; z-index: 70; max-width: calc(100vw - 2rem); padding: .8rem 1.25rem; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: .9rem; font-weight: 600; opacity: 0; pointer-events: none; transform: translate(-50%, 12px); transition: opacity .25s, transform .25s; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* Animação suave dos Modais */
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
-}
+/* Dá aparência de folha de papel com sombra suave, aproximando a interface do objeto real (H2 mundo real). */
+.paper { position: relative; background-color: var(--paper); border: 1px solid var(--line); border-radius: 1.25rem; box-shadow: 0 18px 40px -22px rgba(58, 42, 28, .45); }
 
-.animate-fade-in {
-  animation: fadeIn 0.18s ease-out forwards;
-}
+/* Desenha a pauta com gradiente repetido de 32px igual ao line-height, mantendo o texto sempre assentado na linha (H2 mundo real). */
+.lined { line-height: var(--row); background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 27px, var(--line) 27px, var(--line) 28px, transparent 28px, transparent var(--row)); }
+
+/* Remove qualquer desenho de fundo para representar a folha lisa, igual a um sulfite (H2 mundo real). */
+.t-blank { background-image: none; }
+
+/* Cria o quadriculado cruzando dois gradientes de 1px a cada 20px, útil para gráficos e cálculos (H2 mundo real). */
+.t-grid { background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 20px 20px; }
+
+/* Cria o pontilhado repetindo um gradiente radial pequeno a cada 20px, servindo de guia leve (H2 mundo real). */
+.t-dots { background-image: radial-gradient(var(--line) 1.3px, transparent 1.6px); background-size: 20px 20px; }
+
+/* Desenha a divisão do método Cornell com duas linhas em pseudo-elementos, separando tópicos, notas e resumo (H2 mundo real). */
+.t-cornell::before, .t-cornell::after { content: ""; position: absolute; border: 0 solid var(--latte); opacity: .7; }
+.t-cornell::before { top: 0; bottom: 28%; left: 30%; border-left-width: 2px; }
+.t-cornell::after { left: 0; right: 0; bottom: 28%; border-top-width: 2px; }
+
+/* Cria o post-it com altura de 4 linhas e margem de 38px (cerca de 1 cm) para o texto contornar sem colar nele (H2 mundo real). */
+.postit { float: right; width: 150px; height: calc(var(--row) * 4); margin: 0 0 0 38px; padding: 0 14px; display: grid; place-items: center; text-align: left; font-size: 14px; line-height: 1.35; font-weight: 500; color: #3A2A1C; background: var(--honey); border-radius: 3px 3px 14px 3px; box-shadow: 3px 8px 14px -6px rgba(0, 0, 0, .4); transform: rotate(1.5deg); position: relative; }
+
+/* Desenha a fita adesiva sobre o topo do papel para reforçar a metáfora de colar notas (H2 mundo real). */
+.tape { position: absolute; top: -11px; left: 50%; width: 70px; height: 22px; background: var(--sage); opacity: .9; transform: translateX(-50%) rotate(-3deg); }
+
+/* Fixa o texto do exemplo em 20px sobre linha de 32px, abaixo do teto de 24px, para nunca invadir a linha de cima (H2 mundo real). */
+.hero-text { font-size: 20px; line-height: var(--row); }
+
+/* Cria o carrossel com rolagem horizontal e encaixe por cartão, permitindo navegar por toque, mouse ou setas (H7 flexibilidade). */
+.carousel { display: flex; gap: 1.25rem; overflow-x: auto; scroll-snap-type: x mandatory; padding: .5rem .25rem 1.5rem; scrollbar-width: thin; }
+.carousel > * { scroll-snap-align: start; flex: none; }
+
+/* Estiliza o item de dúvida com borda e marcador próprio para o usuário reconhecer que expande ao clicar (H10 ajuda). */
+.faq { border: 1.5px solid var(--line); border-radius: 1rem; background: var(--surface); }
+.faq summary { cursor: pointer; padding: 1rem 1.25rem; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-size: 1.25rem; line-height: 1; color: var(--accent); }
+.faq[open] summary::after { content: "\2212"; }
+.faq p { padding: 0 1.25rem 1.1rem; color: var(--muted); font-size: .92rem; }
