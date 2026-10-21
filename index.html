@@ -44,6 +44,12 @@
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M9.9 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6M2 2l20 20"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
 </svg>
 
 <!-- Região de avisos temporários, sempre no DOM e com aria-live, para leitores de tela anunciarem confirmações (H1 visibilidade). -->
@@ -136,7 +142,7 @@
       <h2 class="text-3xl sm:text-4xl font-extrabold">Dúvidas rápidas</h2>
       <div class="mt-8 space-y-3">
         <details class="faq"><summary>Preciso pagar para usar?</summary><p>Não. A Mochila Inteligente é um projeto acadêmico e gratuito.</p></details>
-        <details class="faq"><summary>Onde ficam meus dados?</summary><p>Nesta versão, no próprio navegador do seu aparelho. Se você limpar os dados do navegador, as contas e os cadernos salvos aqui são apagados.</p></details>
+        <details class="faq"><summary>Onde ficam meus dados?</summary><p>Nesta versão, no próprio navegador do seu aparelho. Se você limpar os dados do navegador, as contas, matérias e cadernos salvos aqui são apagados.</p></details>
         <details class="faq"><summary>Esqueci minha senha. E agora?</summary><p>Esta versão não envia e-mail de recuperação. Crie uma nova conta com outro e-mail para continuar.</p></details>
         <details class="faq"><summary>O que é a pauta travada?</summary><p>É uma linha com altura fixa. O texto fica sempre sobre ela e o tamanho da fonte tem um limite para nunca invadir a linha de cima.</p></details>
       </div>
@@ -241,23 +247,155 @@
   </section>
 </div>
 
-<!-- ===================== ÁREA LOGADA (placeholder da Etapa 2) ===================== -->
-<!-- Define a área protegida que recebe o armário virtual na próxima etapa, já confirmando ao usuário que o acesso funcionou (H1). -->
-<div data-view="app" data-title="Minha mochila | Mochila Inteligente" hidden class="min-h-screen">
-  <header class="border-b border-line">
-    <div class="max-w-6xl mx-auto flex items-center justify-between px-5 h-16">
-      <span class="flex items-center gap-2 font-extrabold text-lg"><svg class="icon" style="color:var(--accent)" aria-hidden="true"><use href="#i-logo"/></svg>Mochila Inteligente</span>
-      <div class="flex items-center gap-2">
+<!-- ===================== ARMÁRIO VIRTUAL (ETAPA 2) ===================== -->
+<!-- Define a área protegida onde o usuário organiza matérias e cadernos, a tela central do produto depois do login (H2 mundo real). -->
+<div data-view="app" data-title="Meu armário | Mochila Inteligente" hidden class="min-h-screen">
+  <!-- Fixa o topo com marca, busca global e ações de conta para a busca e a saída estarem sempre ao alcance (H3 controle, H7 eficiência). -->
+  <header class="sticky top-0 z-30 backdrop-blur border-b border-line" style="background: color-mix(in srgb, var(--bg) 88%, transparent)">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center gap-3 px-5 py-3">
+      <span class="flex items-center gap-2 font-extrabold text-lg"><svg class="icon" style="color:var(--accent)" aria-hidden="true"><use href="#i-logo"/></svg><span class="hidden sm:inline">Mochila Inteligente</span></span>
+
+      <!-- Agrupa campo e painel da busca global, que no celular desce para uma segunda linha para ter largura total (UX responsivo). -->
+      <div id="busca-wrap" class="relative order-last w-full md:order-none md:flex-1 md:max-w-xl md:mx-auto">
+        <label for="busca" class="sr-only">Buscar na mochila</label>
+        <svg class="icon absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" aria-hidden="true"><use href="#i-search"/></svg>
+        <!-- Informa o atalho no próprio campo, ensinando o recurso por reconhecimento e não por memorização (H6, H7, H10). -->
+        <input id="busca" type="search" class="input !pl-11" placeholder="Buscar na mochila (atalho: / ou Ctrl+K)" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="busca-painel">
+        <div id="busca-painel" class="search-panel" hidden></div>
+      </div>
+
+      <div class="flex items-center gap-2 ml-auto">
         <button class="js-theme btn btn-ghost !px-3" type="button" aria-label="Alternar tema escuro" aria-pressed="false"><svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
         <!-- Deixa a saída sempre visível no topo, com rótulo textual, para o usuário encerrar a sessão quando quiser (H3 controle). -->
-        <button id="btn-sair" class="btn btn-ghost" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg>Sair</button>
+        <button id="btn-sair" class="btn btn-ghost" type="button"><svg class="icon" aria-hidden="true"><use href="#i-out"/></svg><span class="hidden sm:inline">Sair</span></button>
       </div>
     </div>
   </header>
-  <main class="max-w-3xl mx-auto px-5 py-16">
-    <h1 class="text-3xl sm:text-4xl font-extrabold" tabindex="-1">Olá, <span id="user-name"></span>.</h1>
-    <p class="mt-4 text-muted text-lg">Sua conta está pronta. O armário virtual, com matérias e cadernos, entra na próxima etapa.</p>
+
+  <main class="max-w-6xl mx-auto px-5 py-10">
+    <!-- Cumprimenta o usuário e resume o que existe no armário, dando status do sistema logo na entrada (H1 visibilidade). -->
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold" tabindex="-1">Olá, <span id="user-name"></span>.</h1>
+        <p id="armario-resumo" class="mt-2 text-muted"></p>
+      </div>
+      <!-- Separa a ação principal de criar caderno da secundária de criar matéria, guiando o fluxo natural de uso (H6). -->
+      <div class="flex flex-wrap gap-2">
+        <button id="btn-nova-materia" class="btn btn-ghost" type="button"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>Nova matéria</button>
+        <button id="btn-novo-caderno" class="btn btn-primary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Novo caderno</button>
+      </div>
+    </div>
+
+    <!-- Mostra um estado vazio acolhedor com o próximo passo explicado, em vez de uma tela em branco que deixaria o usuário perdido (H6, H10). -->
+    <div id="armario-vazio" hidden class="mt-12 paper p-10 text-center max-w-xl mx-auto">
+      <span class="chip mx-auto"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>
+      <h2 class="mt-5 text-2xl font-extrabold">Seu armário está vazio</h2>
+      <p class="mt-2 text-muted">Comece criando uma matéria, como Cálculo ou História. Depois é só adicionar os cadernos dela.</p>
+      <button id="btn-primeira-materia" class="btn btn-primary mt-6" type="button">Criar primeira matéria</button>
+    </div>
+
+    <!-- Recebe as prateleiras de matérias desenhadas pelo JavaScript a partir dos dados salvos do usuário. -->
+    <div id="armario" class="mt-10 space-y-14"></div>
   </main>
+
+  <!-- Usa o elemento dialog nativo, que já prende o foco, fecha com Esc e escurece o fundo, reduzindo código e erros (H3, H5, H7). -->
+  <dialog id="dlg-materia" class="dlg" aria-labelledby="dlg-materia-titulo">
+    <form id="form-materia" class="p-6 space-y-4" novalidate>
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="dlg-materia-titulo" class="text-xl font-extrabold">Nova matéria</h2>
+        <button type="button" class="btn btn-ghost !px-3" data-close aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div>
+        <label for="mat-nome" class="block text-sm font-semibold mb-1">Nome da matéria</label>
+        <!-- Limita o tamanho do nome e dá um exemplo no campo para evitar títulos gigantes e orientar o preenchimento (H5, H6). -->
+        <input id="mat-nome" class="input" type="text" name="nome" data-rule="nomeMateria" maxlength="40" placeholder="Ex.: Cálculo 1" autocomplete="off" aria-describedby="mat-nome-erro" required>
+        <p id="mat-nome-erro" class="field-error" role="alert"></p>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" data-label="Criar matéria">Criar matéria</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-caderno" class="dlg" aria-labelledby="dlg-caderno-titulo">
+    <form id="form-caderno" class="p-6 space-y-5" novalidate>
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="dlg-caderno-titulo" class="text-xl font-extrabold">Novo caderno</h2>
+        <button type="button" class="btn btn-ghost !px-3" data-close aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+
+      <div>
+        <label for="cdn-titulo" class="block text-sm font-semibold mb-1">Título do caderno</label>
+        <input id="cdn-titulo" class="input" type="text" name="titulo" data-rule="tituloCaderno" maxlength="40" placeholder="Ex.: Lista de exercícios" autocomplete="off" aria-describedby="cdn-titulo-erro" required>
+        <p id="cdn-titulo-erro" class="field-error" role="alert"></p>
+      </div>
+
+      <div>
+        <label for="cdn-materia" class="block text-sm font-semibold mb-1">Matéria</label>
+        <select id="cdn-materia" class="input" name="materia" data-rule="escolha" aria-describedby="cdn-materia-erro" required></select>
+        <p id="cdn-materia-erro" class="field-error" role="alert"></p>
+      </div>
+
+      <!-- Agrupa as cinco folhas em um fieldset com legenda, e cada opção traz uma miniatura para reconhecer o tipo sem ler (H6, acessibilidade). -->
+      <fieldset>
+        <legend class="block text-sm font-semibold mb-2">Folha padrão</legend>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <label class="opt"><input type="radio" name="folha" value="pauta" checked><span class="opt-box"><span class="mini lined" aria-hidden="true"></span>Com pauta</span></label>
+          <label class="opt"><input type="radio" name="folha" value="lisa"><span class="opt-box"><span class="mini t-blank" aria-hidden="true"></span>Sem pauta</span></label>
+          <label class="opt"><input type="radio" name="folha" value="quadriculado"><span class="opt-box"><span class="mini t-grid" aria-hidden="true"></span>Quadriculado</span></label>
+          <label class="opt"><input type="radio" name="folha" value="pontilhado"><span class="opt-box"><span class="mini t-dots" aria-hidden="true"></span>Pontilhado</span></label>
+          <label class="opt"><input type="radio" name="folha" value="cornell"><span class="opt-box"><span class="mini lined t-cornell" aria-hidden="true"></span>Cornell</span></label>
+        </div>
+      </fieldset>
+
+      <!-- Reúne o seletor de cor da capa, da etiqueta e das abas, com roda, brilho, hexadecimal, RGB e prévia ao vivo (H1, H3, H7). -->
+      <fieldset>
+        <legend class="block text-sm font-semibold mb-2">Cor da capa, da etiqueta e das abas</legend>
+        <div class="flex flex-wrap gap-6">
+          <div>
+            <div class="wheel-wrap">
+              <!-- Permite escolher matiz e saturação arrastando ou usando as setas do teclado, com alternativa digitada ao lado (H7, acessibilidade). -->
+              <canvas id="wheel" width="220" height="220" tabindex="0" role="application" aria-label="Roda de cores. Arraste ou use as setas do teclado para escolher a cor. Você também pode digitar o código ao lado."></canvas>
+              <span id="wheel-marker" class="wheel-marker" aria-hidden="true"></span>
+            </div>
+            <label for="cor-brilho" class="block text-xs font-semibold mt-3 mb-1">Brilho</label>
+            <input id="cor-brilho" type="range" name="brilho" min="0" max="100" value="100">
+          </div>
+
+          <div class="flex-1 min-w-[11rem] space-y-3">
+            <!-- Mostra a capa em miniatura mudando enquanto o usuário escolhe, dando retorno imediato do resultado final (H1 visibilidade). -->
+            <div class="w-28">
+              <div id="cor-preview" class="cover" aria-hidden="true" style="cursor: default"><span class="cover-spine"></span><span class="cover-tabs"><i></i><i></i><i></i></span><span id="preview-label" class="cover-label" style="left:24px;right:20px;font-size:.7rem;padding:.4rem .45rem">Título do caderno</span></div>
+            </div>
+            <!-- Oferece as quatro cores da paleta do projeto como atalho de um clique, evitando mexer na roda (H7 flexibilidade). -->
+            <div class="flex flex-wrap gap-2" role="group" aria-label="Cores da paleta">
+              <button type="button" class="swatch" data-hex="#EAB05C" style="background:#EAB05C" aria-label="Beeswax" title="Beeswax"></button>
+              <button type="button" class="swatch" data-hex="#D95122" style="background:#D95122" aria-label="Grenadine" title="Grenadine"></button>
+              <button type="button" class="swatch" data-hex="#B6CFB9" style="background:#B6CFB9" aria-label="Darlington" title="Darlington"></button>
+              <button type="button" class="swatch" data-hex="#896645" style="background:#896645" aria-label="Cafe Latte" title="Cafe Latte"></button>
+            </div>
+            <div>
+              <label for="cor-hex" class="block text-xs font-semibold mb-1">Código hexadecimal</label>
+              <input id="cor-hex" class="input" type="text" name="hex" data-rule="hex" maxlength="7" placeholder="#D95122" autocomplete="off" aria-describedby="cor-hex-erro">
+              <p id="cor-hex-erro" class="field-error" role="alert"></p>
+            </div>
+            <!-- Limita os campos RGB a números de 0 a 255 já no tipo e no JavaScript, prevenindo o erro em vez de só avisar (H5). -->
+            <div class="grid grid-cols-3 gap-2">
+              <div><label for="cor-r" class="block text-xs font-semibold mb-1">R</label><input id="cor-r" class="input !px-2" type="number" name="r" min="0" max="255" inputmode="numeric"></div>
+              <div><label for="cor-g" class="block text-xs font-semibold mb-1">G</label><input id="cor-g" class="input !px-2" type="number" name="g" min="0" max="255" inputmode="numeric"></div>
+              <div><label for="cor-b" class="block text-xs font-semibold mb-1">B</label><input id="cor-b" class="input !px-2" type="number" name="b" min="0" max="255" inputmode="numeric"></div>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" data-label="Criar caderno">Criar caderno</button>
+      </div>
+    </form>
+  </dialog>
 </div>
 
 </body>
