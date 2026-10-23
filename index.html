@@ -50,6 +50,12 @@
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-bold" viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"/></symbol>
+  <symbol id="i-highlight" viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></symbol>
+  <symbol id="i-checklist" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></symbol>
+  <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-fileplus" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M12 18v-6M9 15h6"/></symbol>
 </svg>
 
 <!-- Região de avisos temporários, sempre no DOM e com aria-live, para leitores de tela anunciarem confirmações (H1 visibilidade). -->
@@ -396,6 +402,105 @@
       </div>
     </form>
   </dialog>
+</div>
+
+<!-- ===================== MIOLO DO CADERNO (ETAPA 3) ===================== -->
+<!-- Define a tela de escrita, aberta pela rota do caderno, onde o usuário vê uma página por vez como em um caderno de verdade (H2 mundo real). -->
+<div data-view="editor" data-title="Caderno | Mochila Inteligente" hidden class="min-h-screen">
+  <!-- Fixa o topo com título, status de salvamento e a barra de ferramentas, para a formatação ficar sempre à mão enquanto se escreve (H3, H7). -->
+  <header class="sticky top-0 z-30 backdrop-blur border-b border-line" style="background: color-mix(in srgb, var(--bg) 94%, transparent)">
+    <div class="max-w-6xl mx-auto px-5 py-3 flex flex-wrap items-center gap-3">
+      <!-- Oferece o retorno ao armário com rótulo textual, saída clara do caderno a qualquer momento (H3 controle e liberdade). -->
+      <a href="#/mochila" class="btn btn-ghost !px-3 sm:!px-4" aria-label="Voltar ao armário"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg><span class="hidden sm:inline">Armário</span></a>
+      <div class="min-w-0">
+        <h1 id="ed-titulo" class="font-extrabold text-lg truncate" tabindex="-1"></h1>
+        <p id="ed-materia" class="text-xs text-muted truncate"></p>
+      </div>
+      <!-- Informa em texto quando o conteúdo foi salvo, para o usuário confiar que nada se perde enquanto escreve (H1 visibilidade do status). -->
+      <p class="ml-auto flex items-center gap-1 text-xs font-semibold text-muted" role="status"><svg class="icon !w-4 !h-4" aria-hidden="true"><use href="#i-check"/></svg><span id="save-status-text">Salvo</span></p>
+      <button class="js-theme btn btn-ghost !px-3" type="button" aria-label="Alternar tema escuro" aria-pressed="false"><svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
+    </div>
+
+    <!-- Reúne fundo, fonte, tamanho, negrito, cores, marca-texto e checklist em grupos rotulados, reconhecíveis sem decorar nada (H6 reconhecimento). -->
+    <div class="max-w-6xl mx-auto px-5 pb-3">
+      <div id="toolbar" role="toolbar" aria-label="Ferramentas de texto" class="flex flex-wrap items-center gap-2">
+        <div class="tb-group">
+          <label for="tb-folha" class="sr-only">Fundo da página</label>
+          <select id="tb-folha" class="input tb-sel" title="Fundo desta página">
+            <option value="pauta">Com pauta</option>
+            <option value="lisa">Sem pauta</option>
+            <option value="quadriculado">Quadriculado</option>
+            <option value="pontilhado">Pontilhado</option>
+            <option value="cornell">Método Cornell</option>
+          </select>
+        </div>
+
+        <div class="tb-group">
+          <label for="tb-fonte" class="sr-only">Fonte</label>
+          <select id="tb-fonte" class="input tb-sel" title="Fonte do texto selecionado">
+            <option value="montserrat">Montserrat</option>
+            <option value="arial">Arial</option>
+            <option value="calibri">Calibri</option>
+          </select>
+          <!-- Lista só tamanhos até 24 px, o teto que cabe na linha de 32 px, impedindo a escolha que quebraria a pauta (H5 prevenção de erros). -->
+          <label for="tb-tamanho" class="sr-only">Tamanho da fonte, máximo 24 pixels</label>
+          <select id="tb-tamanho" class="input tb-sel" title="Tamanho (máximo 24 px para caber na linha de 32 px)">
+            <option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18" selected>18</option><option value="20">20</option><option value="22">22</option><option value="24">24</option>
+          </select>
+          <button id="tb-negrito" class="tb-btn" type="button" aria-pressed="false" aria-label="Negrito" title="Negrito (Ctrl+B)"><svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg></button>
+        </div>
+
+        <!-- Oferece a cor automática, que se adapta ao tema claro ou escuro, e quatro cores fixas mais um seletor livre (H7, requisito do modo escuro). -->
+        <div class="tb-group" role="group" aria-label="Cor do texto">
+          <svg class="icon text-muted" aria-hidden="true"><use href="#i-type"/></svg>
+          <button type="button" class="sw" data-fore="auto" style="background: linear-gradient(135deg, #3A2A1C 50%, #F5F5F5 50%)" aria-label="Cor automática, muda com o tema" title="Automática (muda com o tema)"></button>
+          <button type="button" class="sw" data-fore="#D95122" style="background:#D95122" aria-label="Grenadine" title="Grenadine"></button>
+          <button type="button" class="sw" data-fore="#3F7D4E" style="background:#3F7D4E" aria-label="Verde" title="Verde"></button>
+          <button type="button" class="sw" data-fore="#2F63B5" style="background:#2F63B5" aria-label="Azul" title="Azul"></button>
+          <button type="button" class="sw" data-fore="#896645" style="background:#896645" aria-label="Cafe Latte" title="Cafe Latte"></button>
+          <input id="tb-cor-livre" class="tb-color" type="color" value="#D95122" aria-label="Outra cor de texto" title="Outra cor">
+        </div>
+
+        <!-- Aplica marca-texto com cores translúcidas, que não cobrem a escrita, e um botão para remover, desfazendo o efeito (H3, requisito do marca-texto). -->
+        <div class="tb-group" role="group" aria-label="Marca-texto">
+          <svg class="icon text-muted" aria-hidden="true"><use href="#i-highlight"/></svg>
+          <button type="button" class="sw" data-hl="rgba(234,176,92,.5)" style="background:rgba(234,176,92,.5)" aria-label="Marca-texto Beeswax" title="Beeswax"></button>
+          <button type="button" class="sw" data-hl="rgba(182,207,185,.8)" style="background:rgba(182,207,185,.8)" aria-label="Marca-texto Darlington" title="Darlington"></button>
+          <button type="button" class="sw" data-hl="rgba(217,81,34,.3)" style="background:rgba(217,81,34,.3)" aria-label="Marca-texto Grenadine" title="Grenadine"></button>
+          <button type="button" class="sw" data-hl="rgba(120,170,230,.4)" style="background:rgba(120,170,230,.4)" aria-label="Marca-texto azul" title="Azul"></button>
+          <button type="button" class="tb-btn !min-w-0 !min-h-0 h-7 w-7 !p-0" data-hl="transparent" aria-label="Remover marca-texto" title="Remover marca-texto"><svg class="icon !w-4 !h-4" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+
+        <button id="tb-checklist" class="tb-btn" type="button" title="Transformar a linha em item de checklist. Ctrl+Enter marca como concluído."><svg class="icon" aria-hidden="true"><use href="#i-checklist"/></svg>Checklist</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="px-3 sm:px-5 py-8">
+    <!-- Mostra a folha ao lado das abas numeradas, que levam a qualquer página com um clique, como as divisórias de um caderno (H2, H7). -->
+    <div class="stage mx-auto max-w-[860px]">
+      <article id="sheet" class="sheet f-pauta" aria-label="Página do caderno">
+        <div class="sheet-head"><span id="sheet-crumb"></span><span id="sheet-num"></span></div>
+        <div class="sheet-body">
+          <!-- Declara cada zona como caixa de texto editável com rótulo próprio, para leitores de tela entenderem onde escrevem (acessibilidade). -->
+          <div id="z-cue" class="zone zone-cue" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Tópicos e palavras-chave" spellcheck="true" lang="pt-BR"></div>
+          <div id="z-notes" class="zone zone-notes" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Anotações da página" spellcheck="true" lang="pt-BR" data-ph="Comece a escrever aqui..."></div>
+          <div id="z-summary" class="zone zone-summary" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Resumo da página" spellcheck="true" lang="pt-BR"></div>
+        </div>
+      </article>
+      <nav id="tabs" class="tabs" aria-label="Páginas do caderno"></nav>
+    </div>
+
+    <!-- Reúne a navegação entre páginas e as ações de criar e excluir logo abaixo da folha, onde o olho já está (H4, H6). -->
+    <div class="mx-auto max-w-[860px] mt-6 flex flex-wrap items-center justify-center gap-2">
+      <button id="pg-prev" class="btn btn-ghost" type="button" title="Página anterior (Alt+PageUp)"><svg class="icon" aria-hidden="true"><use href="#i-left"/></svg><span class="hidden sm:inline">Anterior</span></button>
+      <span id="page-ind" class="px-3 text-sm font-bold" aria-live="polite"></span>
+      <button id="pg-next" class="btn btn-ghost" type="button" title="Próxima página (Alt+PageDown)"><span class="hidden sm:inline">Próxima</span><svg class="icon" aria-hidden="true"><use href="#i-right"/></svg></button>
+      <span class="w-px h-6 bg-[var(--line)] mx-1" aria-hidden="true"></span>
+      <button id="pg-new" class="btn btn-primary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-fileplus"/></svg>Nova página</button>
+      <button id="pg-del" class="btn btn-ghost" type="button" aria-label="Excluir página atual" title="Excluir página atual"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="hidden sm:inline">Excluir</span></button>
+    </div>
+  </main>
 </div>
 
 </body>

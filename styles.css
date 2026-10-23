@@ -16,7 +16,7 @@
   color-scheme: light;
 }
 
-/* Redefine as variáveis no modo escuro usando #121212 e #2B2B2B para conforto visual noturno sem refazer componentes (H8 minimalismo). */
+/* Redefine as variáveis no modo escuro usando #121212 e #2B2B2B e a tinta #F5F5F5, invertendo o contraste da fonte padrão sem refazer componentes (H8 minimalismo). */
 .dark {
   --bg: #121212;
   --surface: #2B2B2B;
@@ -108,7 +108,7 @@ body { background: var(--bg); color: var(--ink); font-family: 'Montserrat', Aria
 .toast { position: fixed; left: 50%; bottom: 1.5rem; z-index: 80; max-width: calc(100vw - 2rem); padding: .8rem 1.25rem; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: .9rem; font-weight: 600; opacity: 0; pointer-events: none; transform: translate(-50%, 12px); transition: opacity .25s, transform .25s; }
 .toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
 
-/* Estiliza o botão Desfazer dentro do aviso para parecer um link claro e permitir reverter a ação com um clique (H3 controle e liberdade). */
+/* Estiliza o botão de ação dentro do aviso para parecer um link claro e permitir reverter ou continuar com um clique (H3 controle e liberdade). */
 .toast-action { margin-left: .9rem; font-weight: 800; text-decoration: underline; color: var(--honey); cursor: pointer; }
 .dark .toast-action { color: var(--accent-strong); }
 
@@ -234,3 +234,81 @@ input[type="range"] { accent-color: var(--accent); width: 100%; }
 
 /* Destaca a palavra encontrada com fundo Beeswax e tinta escura fixa para o contraste valer nos dois temas (H1, H6). */
 mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 0 .1rem; }
+
+/* ===================== ETAPA 3: MIOLO DO CADERNO ===================== */
+
+/* Agrupa folha e abas laterais lado a lado, centralizados, para o conjunto parecer um caderno aberto sobre a mesa (H2 mundo real). */
+.stage { display: flex; justify-content: center; align-items: flex-start; }
+
+/* Desenha a folha com altura fixa de linhas inteiras, sem rolagem infinita, para a página ter limite físico como o papel (H2, requisito de paginação). */
+.sheet { --rows: 20; position: relative; flex: 1; min-width: 0; max-width: 780px; padding-bottom: var(--row); background: var(--paper); border: 1px solid var(--line); border-radius: 1rem 0 0 1rem; box-shadow: 0 24px 50px -28px rgba(58, 42, 28, .55); }
+
+/* Cria o cabeçalho de uma linha com o caminho do caderno e o número da página, orientando o usuário sobre onde está (H1 visibilidade). */
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: var(--row); padding: 0 1.1rem; font-size: .7rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
+
+/* Monta a área de escrita em grade com altura de exatas 20 linhas de 32px, base para todas as folhas e para o Cornell (H4). */
+.sheet-body { position: relative; display: grid; grid-template-columns: 1fr; grid-template-rows: calc(var(--row) * var(--rows)); }
+
+/* Define as zonas editáveis com line-height imutável de 32px, fonte base de 18px e overflow oculto, para o texto nunca fugir da pauta (Baseline Lock). */
+.zone { min-height: 0; overflow: hidden; padding: 0 18px; font-family: 'Montserrat', Arial, sans-serif; font-size: 18px; line-height: var(--row); color: var(--ink); outline: none; overflow-wrap: anywhere; caret-color: var(--accent); }
+.zone:focus { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--honey) 75%, transparent); }
+
+/* Zera o line-height dos trechos inline para só o bloco pai definir a altura da linha, impedindo que fontes mistas empurrem a pauta (Baseline Lock). */
+.zone span, .zone font, .zone b, .zone strong, .zone i, .zone em, .zone u { line-height: 0; }
+
+/* Mostra uma dica dentro da zona vazia de notas para o usuário saber onde escrever, sumindo ao digitar (H6 reconhecimento, H10). */
+.zone-notes:empty::before { content: attr(data-ph); color: var(--muted); pointer-events: none; }
+
+/* Posiciona as três zonas na grade e deixa tópicos e resumo escondidos fora do Cornell, mantendo uma só área de escrita nas outras folhas (H8). */
+.zone-notes { grid-column: 1; grid-row: 1; }
+.zone-cue, .zone-summary { display: none; }
+.zone-cue { grid-column: 1; grid-row: 1; }
+.zone-summary { grid-column: 1 / -1; grid-row: 2; }
+
+/* Desenha a pauta nas zonas com a linha em y=23px, logo abaixo da linha de base do texto de 18px, para as letras assentarem sobre a linha (Baseline Lock). */
+.f-pauta .zone, .f-cornell .zone { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, var(--line) 23px, var(--line) 24px, transparent 24px, transparent var(--row)); }
+
+/* Desenha o quadriculado com células de 32px e linhas horizontais em y=23px, alinhadas à pauta, para o texto também assentar nele (Baseline Lock). */
+.f-quadriculado .zone { background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 32px 32px; background-position: 0 23px; }
+
+/* Desenha o pontilhado com um ponto a cada 32px alinhado a y=23px, mantendo a mesma régua de todas as folhas (Baseline Lock). */
+.f-pontilhado .zone { background-image: radial-gradient(var(--line) 1.4px, transparent 1.8px); background-size: 32px 32px; background-position: 0 7px; }
+
+/* Traça a margem vertical clássica só na folha pautada e afasta o texto dela, imitando o caderno escolar (H2 mundo real). */
+.f-pauta .sheet-body::before { content: ""; position: absolute; top: 0; bottom: 0; left: 44px; width: 2px; background: color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; z-index: 1; }
+.f-pauta .zone-notes { padding-left: 64px; }
+
+/* Monta o método Cornell com coluna de tópicos de 30%, notas à direita e resumo nas 5 últimas linhas, tudo em múltiplos de 32px (H2 mundo real). */
+.f-cornell .sheet-body { grid-template-columns: 30% 1fr; grid-template-rows: calc(var(--row) * 15) calc(var(--row) * 5); }
+.f-cornell .zone-cue, .f-cornell .zone-summary { display: block; }
+.f-cornell .zone-notes { grid-column: 2; grid-row: 1; }
+.f-cornell .sheet-body::before { content: ""; position: absolute; left: 30%; top: 0; width: 2px; height: calc(var(--row) * 15); background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
+.f-cornell .sheet-body::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--row) * 15); height: 2px; background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
+
+/* Cria o marcador circular da checklist com pseudo-elemento alinhado à linha de base e recua o texto, sem inserir nós que quebrem a edição (H2, H5). */
+.zone .chk-line { position: relative; padding-left: 32px; }
+.zone .chk-line::before { content: ""; position: absolute; left: 4px; top: 8px; width: 15px; height: 15px; box-sizing: border-box; border: 2px solid var(--ink); border-radius: 50%; cursor: pointer; }
+
+/* Marca o item concluído preenchendo o círculo e riscando o texto em tom suave, mostrando o estado de relance (H1 visibilidade). */
+.zone .chk-line[data-done="true"] { text-decoration: line-through; color: var(--muted); }
+.zone .chk-line[data-done="true"]::before { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 2.5px var(--paper); }
+
+/* Agrupa seletores e botões da barra de ferramentas em caixas com borda, para o usuário reconhecer cada família de ação (H6 reconhecimento). */
+.tb-group { display: flex; align-items: center; gap: .4rem; padding: .25rem .55rem; border: 1.5px solid var(--line); border-radius: .9rem; background: var(--paper); }
+.tb-sel { width: auto; min-height: 2.5rem; padding: .35rem .6rem; border-radius: .7rem; font-size: .85rem; font-weight: 600; }
+.tb-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 2.5rem; min-height: 2.5rem; padding: 0 .6rem; border: 1.5px solid var(--line); border-radius: .7rem; background: var(--paper); font-size: .85rem; font-weight: 700; cursor: pointer; }
+.tb-btn:hover { border-color: var(--latte); }
+.tb-btn[aria-pressed="true"] { background: var(--sage-soft); border-color: var(--accent); }
+
+/* Cria as bolinhas de cor do texto e do marca-texto, com borda dupla para aparecerem sobre qualquer fundo claro ou escuro (H1, H6). */
+.sw { width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 2px solid var(--paper); box-shadow: 0 0 0 1.5px var(--line); cursor: pointer; }
+.sw:hover { transform: scale(1.12); }
+.tb-color { width: 1.8rem; height: 1.8rem; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+
+/* Empilha as abas numeradas na lateral com rolagem própria, cada uma na cor derivada da capa, para acesso rápido a qualquer página (H7, H6). */
+.tabs { position: relative; display: flex; flex-direction: column; gap: 6px; width: 2.7rem; max-height: calc(var(--row) * 22); overflow-y: auto; padding: 1.25rem 0 .5rem; scrollbar-width: none; }
+.tab-page { position: relative; flex: none; width: 2.2rem; height: 2.6rem; margin-left: -2px; border-radius: 0 .8rem .8rem 0; background: var(--tab); font-size: .8rem; font-weight: 800; cursor: pointer; box-shadow: 2px 3px 6px -3px rgba(0, 0, 0, .4); transition: width .15s, transform .15s; }
+.tab-page:hover { width: 2.5rem; }
+
+/* Destaca a aba da página atual alargando e contornando, para o usuário ver sempre em qual página está (H1 visibilidade). */
+.tab-page.on { width: 2.65rem; box-shadow: inset 0 0 0 2.5px var(--ink), 2px 3px 6px -3px rgba(0, 0, 0, .4); }

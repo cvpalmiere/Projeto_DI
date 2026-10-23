@@ -40,7 +40,7 @@
   // Escolhe singular ou plural conforme o número para as mensagens soarem naturais, como uma pessoa falaria (H2 mundo real).
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
-  // Gera ids curtos e quase únicos combinando hora e aleatório, suficientes para identificar matérias e cadernos localmente.
+  // Gera ids curtos e quase únicos combinando hora e aleatório, suficientes para identificar matérias, cadernos e páginas localmente.
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ---------- Armazenamento ----------
@@ -61,7 +61,7 @@
 
   // ---------- Feedback ao usuário ----------
 
-  // Mostra uma mensagem na região aria-live, com botão opcional de desfazer, e a esconde sozinha para confirmar ações sem bloquear a tela (H1, H3).
+  // Mostra uma mensagem na região aria-live, com botão opcional de ação, e a esconde sozinha para confirmar ações sem bloquear a tela (H1, H3).
   let toastTimer;
   function toast(message, action) {
     const el = $('#toast');
@@ -112,8 +112,8 @@
 
   // Calcula SHA-256 de salt + senha pela API nativa do navegador para nunca guardar a senha em texto puro (requisito de senha criptografada).
   async function hashPassword(password, salt) {
-    const data = new TextEncoder().encode(salt + password);
-    return toHex(await crypto.subtle.digest('SHA-256', data));
+    const bytes = new TextEncoder().encode(salt + password);
+    return toHex(await crypto.subtle.digest('SHA-256', bytes));
   }
 
   // ---------- Cores: conversões HSV, RGB e hexadecimal ----------
@@ -148,10 +148,16 @@
     return m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : null;
   }
 
-  // Escolhe tinta escura ou branca conforme a luminosidade da capa para o texto sobre ela sempre ter contraste legível (H6, acessibilidade).
+  // Escolhe tinta escura ou branca conforme a luminosidade da cor para o texto sobre ela sempre ter contraste legível (H6, acessibilidade).
   function inkFor(hex) {
     const [r, g, b] = parseHex(hex) || [0, 0, 0];
     return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#2A1D12' : '#FFFFFF';
+  }
+
+  // Mistura duas cores na proporção t, usada para gerar tons das abas a partir da cor da capa e manter a família visual (H4 consistência).
+  function mixHex(hexA, hexB, t) {
+    const a = parseHex(hexA) || [0, 0, 0], b = parseHex(hexB) || [255, 255, 255];
+    return toHexColor(...a.map((x, i) => Math.round(x + (b[i] - x) * t)));
   }
 
   // ---------- Validação de campos ----------
@@ -432,9 +438,9 @@
       : 'Você tem ' + plural(data.materias.length, 'matéria', 'matérias') + ' e ' + plural(totalCadernos(), 'caderno', 'cadernos') + '.';
   }
 
-  // Avisa que o miolo do caderno ainda não existe, em vez de um clique sem resposta, e orienta sobre o que fazer agora (H1, H9).
+  // Abre o miolo do caderno pela rota dele, para o endereço refletir onde o usuário está e o botão voltar funcionar como esperado (H1, H3).
   function openCaderno(c) {
-    toast('O miolo de "' + c.titulo + '" abre na Etapa 3. Por enquanto, personalize e organize o armário.');
+    location.hash = '#/caderno/' + c.id;
   }
 
   // Exclui a matéria com seus cadernos mas oferece Desfazer por 7 segundos, mais seguro e menos chato que uma janela de confirmação (H3, H5).
@@ -628,7 +634,7 @@
     const rgb = parseHex(btn.dataset.hex);
     applyColor(rgbToHsv(...rgb, color.h), 'swatch', rgb);
   }));
-  fc.elements.titulo.addEventListener('input', () => updatePreview(fc.elements.hex.value && parseHex(fc.elements.hex.value) ? toHexColor(...parseHex(fc.elements.hex.value)) : '#896645'));
+  fc.elements.titulo.addEventListener('input', () => updatePreview(parseHex(fc.elements.hex.value) ? toHexColor(...parseHex(fc.elements.hex.value)) : '#896645'));
   fc.elements.materia.addEventListener('change', () => { if (fc.elements.titulo.value) checkField(fc.elements.titulo); });
 
   // ---------- Diálogo de caderno ----------
@@ -677,7 +683,7 @@
       id = found.c.id;
       toast('Caderno "' + titulo + '" atualizado.');
     } else {
-      const novo = { id: uid(), titulo, cor, folha, criadoEm: new Date().toISOString(), paginas: [{ id: uid(), texto: '', postits: [] }] };
+      const novo = { id: uid(), titulo, cor, folha, criadoEm: new Date().toISOString(), paginas: [{ id: uid(), texto: '', html: '', cue: '', summary: '', postits: [] }] };
       destino.cadernos.push(novo);
       id = novo.id;
       toast('Caderno "' + titulo + '" criado em ' + destino.nome + '.');
@@ -718,7 +724,7 @@
     return frag;
   }
 
-  // Procura o termo em matérias, cadernos, páginas e post-its, ignorando acentos e maiúsculas, para achar qualquer coisa da mochila (requisito da busca global).
+  // Procura o termo em matérias, cadernos, páginas e post-its, ignorando acentos e maiúsculas, e guarda a rota para abrir a página exata (requisito da busca global).
   function searchAll(q) {
     const out = [];
     const has = t => norm(t || '').includes(q);
@@ -726,21 +732,23 @@
       if (has(m.nome)) out.push({ tipo: 'Matéria', trecho: m.nome, alvo: 'materia-' + m.id });
       m.cadernos.forEach(c => {
         const ctx = m.nome + ' / ' + c.titulo;
-        if (has(c.titulo)) out.push({ tipo: 'Caderno', trecho: c.titulo, ctx: m.nome, alvo: 'caderno-' + c.id });
+        if (has(c.titulo)) out.push({ tipo: 'Caderno', trecho: c.titulo, ctx: m.nome, alvo: 'caderno-' + c.id, rota: '#/caderno/' + c.id });
         (c.paginas || []).forEach((p, i) => {
-          if (has(p.texto)) out.push({ tipo: 'Página ' + (i + 1), trecho: snippet(p.texto, q), ctx, alvo: 'caderno-' + c.id });
-          (p.postits || []).forEach(pi => { if (has(pi.texto)) out.push({ tipo: 'Post-it', trecho: snippet(pi.texto, q), ctx, alvo: 'caderno-' + c.id }); });
+          const rota = '#/caderno/' + c.id + '/' + (i + 1);
+          if (has(p.texto)) out.push({ tipo: 'Página ' + (i + 1), trecho: snippet(p.texto, q), ctx, alvo: 'caderno-' + c.id, rota });
+          (p.postits || []).forEach(pi => { if (has(pi.texto)) out.push({ tipo: 'Post-it', trecho: snippet(pi.texto, q), ctx, alvo: 'caderno-' + c.id, rota }); });
         });
       });
     });
     return out;
   }
 
-  // Fecha a busca e leva o usuário ao item escolhido, com destaque e foco, para o resultado levar a algum lugar visível (H1, H7).
-  function goTo(id) {
+  // Fecha a busca e leva o usuário ao resultado: abre a página do caderno quando há rota, ou destaca a matéria no armário, com foco (H1, H7).
+  function goTo(r) {
     closeSearch();
-    reveal(id);
-    document.getElementById(id)?.querySelector('button')?.focus({ preventScroll: true });
+    if (r.rota) { location.hash = r.rota; return; }
+    reveal(r.alvo);
+    document.getElementById(r.alvo)?.querySelector('button')?.focus({ preventScroll: true });
   }
 
   // Monta o painel de resultados com contagem, itens clicáveis e mensagens úteis quando não há nada, ajudando a se recuperar (H1, H6, H9, H10).
@@ -759,7 +767,7 @@
     painel.append(h('p', { class: 'px-4 pt-3 pb-1 text-xs font-semibold text-muted', role: 'status' }, plural(res.length, 'resultado', 'resultados')));
     const ul = h('ul');
     res.slice(0, 30).forEach(r => ul.append(h('li', {},
-      h('button', { type: 'button', class: 'result', onclick: () => goTo(r.alvo) },
+      h('button', { type: 'button', class: 'result', onclick: () => goTo(r) },
         h('span', { class: 'result-kind' }, r.tipo),
         h('span', { class: 'result-text' }, highlight(r.trecho, q)),
         r.ctx ? h('span', { class: 'result-ctx' }, r.ctx) : null))));
@@ -787,29 +795,436 @@
   // Fecha o painel ao clicar fora dele, comportamento esperado de qualquer lista suspensa, devolvendo o controle ao usuário (H3, H4).
   document.addEventListener('click', e => { if (!e.target.closest('#busca-wrap')) closeSearch(); });
 
+  // ---------- Miolo do caderno: constantes e estado ----------
+
+  // Fixa a altura da linha em 32px e calcula o teto da fonte em 75% dela (24px), a trava matemática que impede letras de invadir a linha de cima (Baseline Lock).
+  const ROW = 32;
+  const MAX_FONT = Math.floor(ROW * 0.75);
+  const SIZES = [12, 14, 16, 18, 20, 22, 24];
+
+  // Guarda as três famílias homologadas com alternativas, porque Calibri não existe em todo sistema e a pauta não pode depender dela (H5).
+  const FONTS = {
+    montserrat: "'Montserrat', Arial, sans-serif",
+    arial: 'Arial, Helvetica, sans-serif',
+    calibri: "Calibri, Carlito, 'Segoe UI', Arial, sans-serif"
+  };
+
+  // Reúne as três zonas editáveis da folha e o estado do editor, usados por todas as funções de edição, paginação e salvamento.
+  const ZONES = { cue: $('#z-cue'), notes: $('#z-notes'), summary: $('#z-summary') };
+  const sheet = $('#sheet');
+  let ed = null;
+  let activeZone = null;
+  let savedRange = null;
+  let lastSize = 18;
+  let hold = false;
+  let saveTimer;
+
+  // Limpa HTML guardado removendo scripts, atributos de evento e links javascript, para o conteúdo salvo nunca executar código ao reabrir (H5).
+  function sanitize(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html || '';
+    tpl.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach(n => n.remove());
+    tpl.content.querySelectorAll('*').forEach(el => {
+      [...el.attributes].forEach(a => { if (/^on/i.test(a.name) || /javascript:/i.test(a.value)) el.removeAttribute(a.name); });
+    });
+    return tpl.innerHTML;
+  }
+
+  // Descobre a qual zona editável um nó pertence, ignorando qualquer coisa fora da folha, para a barra de ferramentas só agir onde há texto (H5).
+  function zoneOf(node) {
+    const el = node && (node.nodeType === 3 ? node.parentElement : node);
+    const z = el && el.closest ? el.closest('.zone') : null;
+    return z && sheet.contains(z) ? z : null;
+  }
+
+  // Lembra a última seleção feita dentro da folha para os controles da barra, que roubam o foco, aplicarem a formatação no lugar certo (H3, H7).
+  document.addEventListener('selectionchange', () => {
+    if (!ed) return;
+    const sel = getSelection();
+    if (!sel.rangeCount) return;
+    const z = zoneOf(sel.anchorNode);
+    if (z) { activeZone = z; savedRange = sel.getRangeAt(0).cloneRange(); updateToolbarState(); }
+  });
+
+  // Devolve o foco e a seleção lembrada à zona de texto antes de formatar, retornando falso se o usuário ainda não clicou na página (H9).
+  function restoreSelection() {
+    if (!activeZone || !savedRange) return false;
+    activeZone.focus({ preventScroll: true });
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    return true;
+  }
+
+  // Explica o que fazer quando uma ferramenta é usada sem um lugar escolhido para escrever, em vez de falhar em silêncio (H9 recuperação de erros).
+  const noSelection = () => toast('Clique na página onde quer escrever e depois escolha a formatação.');
+
+  // Encontra o bloco (linha) onde está o cursor, filho direto da zona, para aplicar checklist ou outros estilos de linha inteira.
+  function currentBlock(zone = activeZone) {
+    const sel = getSelection();
+    if (!sel.rangeCount || !zone) return null;
+    let n = sel.anchorNode;
+    while (n && n.parentNode !== zone) n = n.parentNode;
+    return n && n.nodeType === 1 ? n : null;
+  }
+
+  // ---------- Miolo do caderno: formatação com baseline travada ----------
+
+  // Converte as marcas que o navegador cria (font size 7, cor automática, tamanhos acima do teto) em estilos controlados, mantendo tudo dentro da linha de 32px (Baseline Lock, H5).
+  function normalizeZone(zone, selectResult) {
+    const made = [];
+    $$('font[size]', zone).forEach(f => {
+      const span = h('span', { style: 'font-size:' + Math.min(lastSize, MAX_FONT) + 'px' });
+      span.append(...f.childNodes);
+      f.replaceWith(span);
+      made.push(span);
+    });
+    $$('span[style]', zone).forEach(s => {
+      if (s.style.color === 'rgb(1, 2, 3)') s.style.color = 'var(--ink)';
+      if (parseFloat(s.style.fontSize) > MAX_FONT) s.style.fontSize = MAX_FONT + 'px';
+    });
+    if (made.length) {
+      const r = document.createRange();
+      if (selectResult) { r.setStartBefore(made[0]); r.setEndAfter(made[made.length - 1]); }
+      else { r.selectNodeContents(made[made.length - 1]); r.collapse(false); }
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      savedRange = r.cloneRange();
+    }
+  }
+
+  // Desfaz a última digitação quando a zona passa da altura física da página e avisa com atalho para criar outra, prevenindo texto cortado (H5, H9).
+  function guardOverflow(zone) {
+    if (!zone || zone.scrollHeight <= zone.clientHeight + 1) return false;
+    document.execCommand('undo');
+    zone.scrollTop = 0;
+    toast('Esta página está cheia. Crie uma nova página para continuar.', { label: 'Nova página', onClick: newPage });
+    return true;
+  }
+
+  // Fecha toda edição agendando o salvamento e atualizando a barra, para o estado mostrado sempre bater com o texto sob o cursor (H1).
+  function afterEdit() {
+    if (!guardOverflow(activeZone)) scheduleSave();
+    updateToolbarState();
+  }
+
+  // Executa um comando de formatação na seleção lembrada, usando estilos CSS em vez de tags antigas, e marca espera quando só há cursor (H3, H7).
+  function exec(cmd, value) {
+    if (!restoreSelection()) { noSelection(); return false; }
+    document.execCommand('styleWithCSS', false, true);
+    const ok = document.execCommand(cmd, false, value);
+    const collapsed = getSelection().isCollapsed;
+    if (collapsed) hold = true;
+    normalizeZone(activeZone, !collapsed);
+    afterEdit();
+    return ok;
+  }
+
+  // Aplica o tamanho em pixels respeitando o teto de 24px, passando pelo tamanho 7 do navegador e convertendo depois para px exatos (Baseline Lock).
+  function applySize(px) {
+    lastSize = px;
+    if (!restoreSelection()) { noSelection(); return; }
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand('fontSize', false, '7');
+    document.execCommand('styleWithCSS', false, true);
+    const collapsed = getSelection().isCollapsed;
+    if (collapsed) hold = true;
+    normalizeZone(activeZone, !collapsed);
+    afterEdit();
+  }
+
+  // Reflete na barra a fonte, o tamanho e o negrito do trecho sob o cursor, para o usuário ver o estado atual sem adivinhar (H1 visibilidade).
+  function updateToolbarState() {
+    if (!ed) return;
+    const sel = getSelection();
+    if (!sel.rangeCount) return;
+    const node = sel.anchorNode;
+    const el = node && (node.nodeType === 3 ? node.parentElement : node);
+    if (!el || !zoneOf(el)) return;
+    $('#tb-negrito').setAttribute('aria-pressed', String(document.queryCommandState('bold')));
+    if (hold) return;
+    const cs = getComputedStyle(el);
+    const fam = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
+    $('#tb-fonte').value = fam === 'calibri' || fam === 'carlito' ? 'calibri' : fam === 'arial' ? 'arial' : 'montserrat';
+    const px = Math.round(parseFloat(cs.fontSize));
+    $('#tb-tamanho').value = String(SIZES.reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a));
+  }
+
+  // Liga cada controle da barra ao seu comando, mantendo a seleção do texto ao clicar em botões para a formatação pegar no trecho certo (H3, H7).
+  $('#toolbar').addEventListener('mousedown', e => { if (!e.target.closest('select, input')) e.preventDefault(); });
+  $('#tb-negrito').addEventListener('click', () => exec('bold'));
+  $('#tb-fonte').addEventListener('change', e => exec('fontName', FONTS[e.target.value]));
+  $('#tb-tamanho').addEventListener('change', e => applySize(Math.min(Number(e.target.value), MAX_FONT)));
+  $$('[data-fore]').forEach(b => b.addEventListener('click', () => exec('foreColor', b.dataset.fore === 'auto' ? '#010203' : b.dataset.fore)));
+  $('#tb-cor-livre').addEventListener('change', e => exec('foreColor', e.target.value));
+  $$('[data-hl]').forEach(b => b.addEventListener('click', () => exec('hiliteColor', b.dataset.hl)));
+  $('#tb-checklist').addEventListener('click', toggleChecklist);
+
+  // Transforma a linha do cursor em item de checklist ou volta ao normal, usando só uma classe para o marcador ficar alinhado à pauta (H3, H5).
+  function toggleChecklist() {
+    if (!restoreSelection()) { noSelection(); return; }
+    let block = currentBlock();
+    if (!block) {
+      if (!activeZone.firstChild) {
+        activeZone.innerHTML = '<div><br></div>';
+        const r = document.createRange();
+        r.setStart(activeZone.firstChild, 0);
+        r.collapse(true);
+        const s = getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+      } else {
+        document.execCommand('formatBlock', false, 'div');
+      }
+      block = currentBlock();
+    }
+    if (!block) return;
+    const on = block.classList.toggle('chk-line');
+    if (!on) block.removeAttribute('data-done');
+    afterEdit();
+  }
+
+  // Marca ou desmarca o item de checklist como concluído, trocando um atributo que o CSS usa para riscar e preencher o círculo (H1 visibilidade).
+  function toggleDone(block) {
+    if (block.dataset.done === 'true') block.removeAttribute('data-done');
+    else block.setAttribute('data-done', 'true');
+    scheduleSave();
+  }
+
+  // ---------- Miolo do caderno: comportamento das zonas de texto ----------
+
+  // Configura cada zona com defesas e atalhos, mantendo a escrita limpa e dentro da página, sem depender de memorizar regras (H3, H5, H7).
+  document.execCommand('defaultParagraphSeparator', false, 'div');
+  Object.values(ZONES).forEach(zone => {
+    // Normaliza a cada digitação, impede passar do limite da página e agenda o salvamento, para nada quebrar a pauta nem se perder (H1, H5).
+    zone.addEventListener('input', () => {
+      hold = false;
+      if (zone.innerHTML === '<br>') zone.innerHTML = '';
+      normalizeZone(zone, false);
+      if (!guardOverflow(zone)) scheduleSave();
+    });
+
+    // Cola só texto puro para formatações de fora (tamanhos, fontes, cores) nunca quebrarem a linha de 32px nem a baseline (H5, Baseline Lock).
+    zone.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    // Bloqueia soltar arquivos ou conteúdo rico na folha, pois imagens e objetos entram pelo motor da próxima etapa e não por arrasto solto (H5).
+    zone.addEventListener('drop', e => e.preventDefault());
+
+    // Alterna o item de checklist ao clicar na área do círculo, a faixa de 28px à esquerda da linha, sem inserir elementos extras (H6, H7).
+    zone.addEventListener('click', e => {
+      const t = e.target;
+      if (t.classList && t.classList.contains('chk-line') && e.offsetX <= 28) toggleDone(t);
+    });
+
+    // Trata Enter na checklist: continua a lista, sai dela em linha vazia e Ctrl+Enter conclui o item, no ritmo de quem digita (H7 eficiência).
+    zone.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      activeZone = zone;
+      const block = currentBlock(zone);
+      if (!block || !block.classList.contains('chk-line')) return;
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); toggleDone(block); return; }
+      if (!block.textContent.trim()) {
+        e.preventDefault();
+        block.classList.remove('chk-line');
+        block.removeAttribute('data-done');
+        scheduleSave();
+        return;
+      }
+      setTimeout(() => { const nb = currentBlock(zone); if (nb && nb !== block) nb.removeAttribute('data-done'); }, 0);
+    });
+  });
+
+  // ---------- Miolo do caderno: páginas, abas e salvamento ----------
+
+  // Mostra o estado do salvamento em texto curto, para o usuário saber se o que digitou já está guardado (H1 visibilidade do status).
+  const setSaveStatus = text => { $('#save-status-text').textContent = text; };
+
+  // Copia o conteúdo das zonas para os dados da página, guardando HTML para reabrir igual e texto puro para a busca global achar (requisito da busca).
+  function collectPage() {
+    if (!ed) return;
+    const p = ed.c.paginas[ed.i];
+    p.html = ZONES.notes.innerHTML;
+    p.cue = ZONES.cue.innerHTML;
+    p.summary = ZONES.summary.innerHTML;
+    p.texto = [ZONES.cue, ZONES.notes, ZONES.summary].map(z => z.innerText.trim()).filter(Boolean).join('\n');
+  }
+
+  // Grava o caderno no armazenamento e confirma com a hora, usado ao trocar de página, sair da tela ou fechar a aba, para nada se perder (H1, H5).
+  function flushSave() {
+    clearTimeout(saveTimer);
+    if (!ed) return;
+    collectPage();
+    saveData();
+    setSaveStatus('Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+  }
+
+  // Agenda o salvamento 500 ms após a última digitação, agrupando teclas para não gravar a cada letra e avisando "Salvando..." (H1, performance).
+  function scheduleSave() {
+    setSaveStatus('Salvando...');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 500);
+  }
+  window.addEventListener('beforeunload', flushSave);
+  window.addEventListener('pagehide', flushSave);
+
+  // Desenha as abas numeradas na lateral, cada uma num tom derivado da cor da capa, e destaca a da página atual para acesso rápido (H1, H7, H6).
+  function renderTabs() {
+    const nav = $('#tabs');
+    const shades = [0, 0.3, 0.5, 0.15, 0.4, 0.6];
+    nav.replaceChildren(...ed.c.paginas.map((p, i) => {
+      const hex = mixHex(ed.c.cor, '#FFFFFF', shades[i % shades.length]);
+      return h('button', { type: 'button', class: 'tab-page' + (i === ed.i ? ' on' : ''), style: '--tab:' + hex + ';color:' + inkFor(hex), 'aria-label': 'Ir para a página ' + (i + 1), 'aria-current': i === ed.i ? 'page' : false, title: 'Página ' + (i + 1), onclick: () => goPage(i) }, String(i + 1));
+    }));
+    const on = $('.on', nav);
+    if (on) nav.scrollTop = on.offsetTop - nav.clientHeight / 2;
+  }
+
+  // Carrega a página atual na folha: fundo, zonas, indicadores, abas e endereço, deixando a tela fiel aos dados e ao link compartilhável (H1, H4).
+  function loadPage(focus) {
+    const c = ed.c, p = c.paginas[ed.i];
+    const folha = p.folha || c.folha || 'pauta';
+    sheet.className = 'sheet f-' + folha;
+    $('#tb-folha').value = folha;
+    ZONES.notes.innerHTML = sanitize(p.html);
+    ZONES.cue.innerHTML = sanitize(p.cue);
+    ZONES.summary.innerHTML = sanitize(p.summary);
+    $('#sheet-crumb').textContent = ed.m.nome + ' / ' + c.titulo;
+    $('#sheet-num').textContent = 'Página ' + (ed.i + 1);
+    $('#page-ind').textContent = 'Página ' + (ed.i + 1) + ' de ' + c.paginas.length;
+    $('#pg-prev').disabled = ed.i === 0;
+    $('#pg-next').disabled = ed.i === c.paginas.length - 1;
+    $('#pg-del').disabled = c.paginas.length <= 1;
+    $('#pg-del').title = c.paginas.length <= 1 ? 'Um caderno precisa ter pelo menos uma página' : 'Excluir página atual';
+    renderTabs();
+    history.replaceState(null, '', '#/caderno/' + c.id + '/' + (ed.i + 1));
+    savedRange = null;
+    activeZone = null;
+    hold = false;
+    if (focus) ZONES.notes.focus();
+  }
+
+  // Abre o caderno pelo id e página da rota, devolvendo falso se não existir, para o roteador avisar em vez de mostrar tela vazia (H9).
+  function openEditor(id, pageIdx) {
+    const found = findCaderno(id);
+    if (!found) return false;
+    ed = { m: found.m, c: found.c, i: 0 };
+    ed.c.paginas.forEach(p => { if (!p.id) p.id = uid(); });
+    ed.i = Math.min(Math.max(pageIdx || 0, 0), ed.c.paginas.length - 1);
+    $('#ed-titulo').textContent = ed.c.titulo;
+    $('#ed-materia').textContent = ed.m.nome;
+    setSaveStatus('Salvo');
+    loadPage(false);
+    return true;
+  }
+
+  // Troca de página salvando a atual antes, para a navegação nunca custar texto, e mantendo um limite seguro de índices (H5).
+  function goPage(i) {
+    if (!ed || i < 0 || i >= ed.c.paginas.length || i === ed.i) return;
+    flushSave();
+    ed.i = i;
+    loadPage(false);
+  }
+
+  // Cria uma página nova logo depois da atual, com a folha padrão do caderno, e leva o cursor a ela, pronta para escrever (H7, H1).
+  function newPage() {
+    if (!ed) return;
+    flushSave();
+    ed.c.paginas.splice(ed.i + 1, 0, { id: uid(), texto: '', html: '', cue: '', summary: '', postits: [], folha: ed.c.folha || 'pauta' });
+    ed.i += 1;
+    saveData();
+    loadPage(true);
+    toast('Página ' + (ed.i + 1) + ' criada.');
+  }
+
+  // Exclui a página atual oferecendo Desfazer, mantendo sempre ao menos uma página no caderno, igual ao padrão do armário (H3, H5).
+  function deletePage() {
+    if (!ed || ed.c.paginas.length <= 1) return;
+    flushSave();
+    const c = ed.c, at = ed.i;
+    const [removed] = c.paginas.splice(at, 1);
+    ed.i = Math.min(at, c.paginas.length - 1);
+    saveData();
+    loadPage(false);
+    toast('Página ' + (at + 1) + ' excluída.', {
+      label: 'Desfazer',
+      onClick: () => {
+        c.paginas.splice(at, 0, removed);
+        saveData();
+        if (ed && ed.c === c) { ed.i = at; loadPage(false); }
+      }
+    });
+  }
+
+  $('#pg-prev').addEventListener('click', () => goPage(ed.i - 1));
+  $('#pg-next').addEventListener('click', () => goPage(ed.i + 1));
+  $('#pg-new').addEventListener('click', newPage);
+  $('#pg-del').addEventListener('click', deletePage);
+
+  // Troca o fundo só da página atual e recusa a troca se o texto não couber no novo layout, explicando o motivo e mantendo o fundo anterior (H5, H9).
+  $('#tb-folha').addEventListener('change', e => {
+    if (!ed) return;
+    const p = ed.c.paginas[ed.i];
+    const before = p.folha || ed.c.folha || 'pauta', next = e.target.value;
+    sheet.className = 'sheet f-' + next;
+    const over = Object.values(ZONES).some(z => z.offsetParent !== null && z.scrollHeight > z.clientHeight + 1);
+    if (over) {
+      sheet.className = 'sheet f-' + before;
+      e.target.value = before;
+      toast('O texto desta página não cabe nesse fundo. Mantive "' + FOLHAS[before] + '".');
+      return;
+    }
+    p.folha = next;
+    saveData();
+    const hidden = before === 'cornell' && next !== 'cornell' && (ZONES.cue.innerText.trim() || ZONES.summary.innerText.trim());
+    toast('Fundo alterado para ' + FOLHAS[next] + '.' + (hidden ? ' Os tópicos e o resumo ficam guardados e voltam no Cornell.' : ''));
+  });
+
   // ---------- Rotas por hash ----------
 
-  // Mapeia cada rota para o nome da tela, centralizando a navegação em uma tabela fácil de estender nas próximas etapas (H4 consistência).
+  // Mapeia cada rota fixa para o nome da tela, centralizando a navegação em uma tabela fácil de estender nas próximas etapas (H4 consistência).
   const ROUTES = { '': 'landing', '/': 'landing', '/login': 'auth', '/cadastro': 'auth', '/mochila': 'app' };
   let firstRender = true;
 
-  // Mostra a tela da rota atual, protege a área logada, ajusta título e foco, para a URL sempre refletir onde o usuário está (H1, H5, H7).
+  // Interpreta a rota, incluindo a do caderno com número de página opcional, para cada página ter um endereço que dá para guardar e reabrir (H1, H3).
+  function parseRoute(path) {
+    const m = /^\/caderno\/([^/]+)(?:\/(\d+))?$/.exec(path);
+    if (m) return { view: 'editor', id: m[1], page: Number(m[2] || 1) - 1 };
+    return { view: ROUTES[path] };
+  }
+
+  // Mostra a tela da rota atual, protege áreas logadas, salva o caderno ao sair e ajusta título e foco, para a URL refletir onde o usuário está (H1, H5, H7).
   function render() {
     const path = location.hash.replace(/^#/, '');
     const session = getSession();
-    let view = ROUTES[path];
+    const route = parseRoute(path);
+    let view = route.view;
 
     if (!view) {
       if (document.getElementById(path)) return; // deixa o navegador rolar até a âncora da seção
       view = 'landing';
     }
-    if (view === 'app' && !session) { location.hash = '#/login'; return; }
+    if ((view === 'app' || view === 'editor') && !session) { location.hash = '#/login'; return; }
     if (view === 'auth' && session) { location.hash = '#/mochila'; return; }
+
+    if (ed) { flushSave(); if (view !== 'editor') ed = null; }
+    if (view === 'editor') {
+      loadData();
+      if (!openEditor(route.id, route.page)) {
+        toast('Não encontramos esse caderno. Ele pode ter sido excluído.');
+        location.hash = '#/mochila';
+        return;
+      }
+    }
 
     $$('dialog[open]').forEach(d => d.close());
     $$('[data-view]').forEach(el => { el.hidden = el.dataset.view !== view; });
     const screen = $('[data-view]:not([hidden])');
-    document.title = screen.dataset.title;
+    document.title = view === 'editor' ? ed.c.titulo + ' | Mochila Inteligente' : screen.dataset.title;
 
     if (view === 'auth') {
       const mode = path === '/cadastro' ? 'cadastro' : 'login';
@@ -839,9 +1254,14 @@
 
   // ---------- Atalhos de teclado ----------
 
-  // Volta ao início com Esc na tela de acesso e abre a busca com / ou Ctrl+K no armário, atalhos para quem prefere o teclado (H3, H7 eficiência).
+  // Volta ao início com Esc no acesso, abre a busca com / ou Ctrl+K no armário e troca de página com Alt+PageUp ou PageDown no caderno (H3, H7 eficiência).
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('[data-view="auth"]').hidden) location.hash = '#/';
+    if (ed && e.altKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+      e.preventDefault();
+      goPage(ed.i + (e.key === 'PageDown' ? 1 : -1));
+      return;
+    }
     if ($('[data-view="app"]').hidden) return;
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     const modalOpen = $('dialog[open]');
