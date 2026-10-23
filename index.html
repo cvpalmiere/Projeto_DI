@@ -45,6 +45,7 @@
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M9.9 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6M2 2l20 20"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
@@ -56,6 +57,10 @@
   <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
   <symbol id="i-fileplus" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M12 18v-6M9 15h6"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-tape" viewBox="0 0 24 24"><path d="M3 8h18v8H3zM7 8v8M17 8v8"/></symbol>
+  <symbol id="i-heading" viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M6 12h12"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
 </svg>
 
 <!-- Região de avisos temporários, sempre no DOM e com aria-live, para leitores de tela anunciarem confirmações (H1 visibilidade). -->
@@ -117,7 +122,7 @@
         <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <article class="bg-surface rounded-3xl p-6"><span class="chip"><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg></span><h3 class="mt-5 font-bold text-lg">Alinhamento milimétrico</h3><p class="mt-2 text-sm text-muted">Espaço entre linhas fixo e texto sempre sobre a linha de base, em qualquer fonte e tamanho.</p></article>
           <article class="bg-surface rounded-3xl p-6"><span class="chip"><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg></span><h3 class="mt-5 font-bold text-lg">Post-its sem colisão</h3><p class="mt-2 text-sm text-muted">Notas e imagens encaixam na pauta e o texto recua 1 cm da borda, sozinho.</p></article>
-          <article class="bg-surface rounded-3xl p-6"><span class="chip"><svg class="icon" aria-hidden="true"><use href="#i-pages"/></svg></span><h3 class="mt-5 font-bold text-lg">Páginas de verdade</h3><p class="mt-2 text-sm text-muted">Navegue página a página, com abas laterais. O que passa do fim vai para a próxima página.</p></article>
+          <article class="bg-surface rounded-3xl p-6"><span class="chip"><svg class="icon" aria-hidden="true"><use href="#i-pages"/></svg></span><h3 class="mt-5 font-bold text-lg">Páginas de verdade</h3><p class="mt-2 text-sm text-muted">Navegue página a página, com abas laterais e sumário clicável. O que passa do fim vai para a próxima página.</p></article>
           <article class="bg-surface rounded-3xl p-6"><span class="chip"><svg class="icon" aria-hidden="true"><use href="#i-pdf"/></svg></span><h3 class="mt-5 font-bold text-lg">Exportação em PDF</h3><p class="mt-2 text-sm text-muted">Escolha o intervalo de páginas, com ou sem pauta, pronto para imprimir em tema claro.</p></article>
         </div>
       </div>
@@ -148,9 +153,10 @@
       <h2 class="text-3xl sm:text-4xl font-extrabold">Dúvidas rápidas</h2>
       <div class="mt-8 space-y-3">
         <details class="faq"><summary>Preciso pagar para usar?</summary><p>Não. A Mochila Inteligente é um projeto acadêmico e gratuito.</p></details>
-        <details class="faq"><summary>Onde ficam meus dados?</summary><p>Nesta versão, no próprio navegador do seu aparelho. Se você limpar os dados do navegador, as contas, matérias e cadernos salvos aqui são apagados.</p></details>
+        <details class="faq"><summary>Onde ficam meus dados?</summary><p>Nesta versão, no próprio navegador do seu aparelho. Se você limpar os dados do navegador, as contas, matérias, cadernos e imagens salvos aqui são apagados.</p></details>
         <details class="faq"><summary>Esqueci minha senha. E agora?</summary><p>Esta versão não envia e-mail de recuperação. Crie uma nova conta com outro e-mail para continuar.</p></details>
         <details class="faq"><summary>O que é a pauta travada?</summary><p>É uma linha com altura fixa. O texto fica sempre sobre ela e o tamanho da fonte tem um limite para nunca invadir a linha de cima.</p></details>
+        <details class="faq"><summary>Como gero o PDF do meu caderno?</summary><p>Abra o caderno, clique em Exportar PDF, escolha as páginas e, na janela de impressão, selecione Salvar como PDF. Use o Chrome ou o Edge para manter os links do sumário clicáveis.</p></details>
       </div>
     </section>
   </main>
@@ -404,7 +410,7 @@
   </dialog>
 </div>
 
-<!-- ===================== MIOLO DO CADERNO (ETAPA 3) ===================== -->
+<!-- ===================== MIOLO DO CADERNO (ETAPAS 3, 4 E 5) ===================== -->
 <!-- Define a tela de escrita, aberta pela rota do caderno, onde o usuário vê uma página por vez como em um caderno de verdade (H2 mundo real). -->
 <div data-view="editor" data-title="Caderno | Mochila Inteligente" hidden class="min-h-screen">
   <!-- Fixa o topo com título, status de salvamento e a barra de ferramentas, para a formatação ficar sempre à mão enquanto se escreve (H3, H7). -->
@@ -418,12 +424,14 @@
       </div>
       <!-- Informa em texto quando o conteúdo foi salvo, para o usuário confiar que nada se perde enquanto escreve (H1 visibilidade do status). -->
       <p class="ml-auto flex items-center gap-1 text-xs font-semibold text-muted" role="status"><svg class="icon !w-4 !h-4" aria-hidden="true"><use href="#i-check"/></svg><span id="save-status-text">Salvo</span></p>
+      <!-- Abre o diálogo de exportação, também acionado por Ctrl+P, deixando a ação principal de saída do caderno sempre visível (H6, H7). -->
+      <button id="btn-pdf" class="btn btn-primary" type="button" title="Exportar para PDF (Ctrl+P)"><svg class="icon" aria-hidden="true"><use href="#i-pdf"/></svg><span class="hidden sm:inline">Exportar PDF</span></button>
       <button class="js-theme btn btn-ghost !px-3" type="button" aria-label="Alternar tema escuro" aria-pressed="false"><svg class="icon i-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="icon i-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
     </div>
 
-    <!-- Reúne fundo, fonte, tamanho, negrito, cores, marca-texto e checklist em grupos rotulados, reconhecíveis sem decorar nada (H6 reconhecimento). -->
-    <div class="max-w-6xl mx-auto px-5 pb-3">
-      <div id="toolbar" role="toolbar" aria-label="Ferramentas de texto" class="flex flex-wrap items-center gap-2">
+    <!-- Reúne fundo, fonte, tamanho, negrito, cores, marca-texto, checklist, título de seção e objetos em grupos rotulados, escondidos no sumário, onde não se escreve (H6, H5). -->
+    <div id="toolbar-wrap" class="max-w-6xl mx-auto px-5 pb-3">
+      <div id="toolbar" role="toolbar" aria-label="Ferramentas de texto e objetos" class="flex flex-wrap items-center gap-2">
         <div class="tb-group">
           <label for="tb-folha" class="sr-only">Fundo da página</label>
           <select id="tb-folha" class="input tb-sel" title="Fundo desta página">
@@ -472,23 +480,48 @@
         </div>
 
         <button id="tb-checklist" class="tb-btn" type="button" title="Transformar a linha em item de checklist. Ctrl+Enter marca como concluído."><svg class="icon" aria-hidden="true"><use href="#i-checklist"/></svg>Checklist</button>
+
+        <!-- Marca a linha como título de seção, que entra sozinho no sumário clicável, com o estado do botão refletindo a linha atual (H1, requisito do sumário). -->
+        <button id="tb-secao" class="tb-btn" type="button" aria-pressed="false" title="Marcar a linha como título de seção. Ele entra no sumário do caderno."><svg class="icon" aria-hidden="true"><use href="#i-heading"/></svg>Título de seção</button>
+
+        <!-- Reúne a criação de post-its e imagens, também aceitas por arrastar e soltar e por Ctrl+V, dando três caminhos para a mesma tarefa (H7 flexibilidade). -->
+        <div class="tb-group" role="group" aria-label="Objetos na página">
+          <button id="tb-postit" class="tb-btn" type="button" title="Colar um post-it na página"><svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>Post-it</button>
+          <label class="tb-btn" title="Colar uma imagem ou sticker. Também dá para arrastar o arquivo para a folha ou usar Ctrl+V."><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>Imagem<input id="tb-imagem" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="sr-only"></label>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="px-3 sm:px-5 py-8">
     <!-- Mostra a folha ao lado das abas numeradas, que levam a qualquer página com um clique, como as divisórias de um caderno (H2, H7). -->
-    <div class="stage mx-auto max-w-[860px]">
-      <article id="sheet" class="sheet f-pauta" aria-label="Página do caderno">
-        <div class="sheet-head"><span id="sheet-crumb"></span><span id="sheet-num"></span></div>
-        <div class="sheet-body">
-          <!-- Declara cada zona como caixa de texto editável com rótulo próprio, para leitores de tela entenderem onde escrevem (acessibilidade). -->
-          <div id="z-cue" class="zone zone-cue" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Tópicos e palavras-chave" spellcheck="true" lang="pt-BR"></div>
-          <div id="z-notes" class="zone zone-notes" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Anotações da página" spellcheck="true" lang="pt-BR" data-ph="Comece a escrever aqui..."></div>
-          <div id="z-summary" class="zone zone-summary" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Resumo da página" spellcheck="true" lang="pt-BR"></div>
+    <div id="stage" class="stage mx-auto" style="width: fit-content; max-width: 100%">
+      <!-- Envolve a folha numa caixa que acompanha o tamanho reduzido em telas pequenas, mantendo a folha com 780px lógicos sempre iguais (UX responsivo). -->
+      <div id="sheet-fit" class="sheet-fit">
+        <div id="sheet-scale" class="sheet-scale">
+          <article id="sheet" class="sheet f-pauta" aria-label="Página do caderno">
+            <div class="sheet-head"><span id="sheet-crumb"></span><span id="sheet-num"></span></div>
+            <div class="sheet-body">
+              <!-- Declara cada zona como caixa de texto editável com rótulo próprio, para leitores de tela entenderem onde escrevem (acessibilidade). -->
+              <div id="z-cue" class="zone zone-cue" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Tópicos e palavras-chave" spellcheck="true" lang="pt-BR"></div>
+              <div id="z-notes" class="zone zone-notes" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Anotações da página" spellcheck="true" lang="pt-BR" data-ph="Comece a escrever aqui..."></div>
+              <div id="z-summary" class="zone zone-summary" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Resumo da página" spellcheck="true" lang="pt-BR"></div>
+              <!-- Recebe post-its e imagens sobre a área de escrita, com um guia tracejado que mostra as linhas do encaixe durante o arrasto (H1, snap-to-line). -->
+              <div id="obj-layer" class="obj-layer"><div id="snap-guide" class="snap-guide" hidden></div></div>
+            </div>
+          </article>
+
+          <!-- Desenha a página de Contents no início do caderno, gerada sozinha a partir dos títulos de seção, com links clicáveis para cada página (requisito do sumário). -->
+          <article id="toc-sheet" class="sheet f-pauta toc-sheet" aria-label="Sumário do caderno" hidden>
+            <div class="sheet-head"><span class="toc-crumb"></span><span>CONTENTS</span></div>
+            <div class="toc-body">
+              <h2 class="toc-heading">Sumário</h2>
+              <div id="toc-list" class="toc-list"></div>
+            </div>
+          </article>
         </div>
-      </article>
-      <nav id="tabs" class="tabs" aria-label="Páginas do caderno"></nav>
+      </div>
+      <nav id="tabs" class="tabs" aria-label="Sumário e páginas do caderno"></nav>
     </div>
 
     <!-- Reúne a navegação entre páginas e as ações de criar e excluir logo abaixo da folha, onde o olho já está (H4, H6). -->
@@ -501,7 +534,75 @@
       <button id="pg-del" class="btn btn-ghost" type="button" aria-label="Excluir página atual" title="Excluir página atual"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="hidden sm:inline">Excluir</span></button>
     </div>
   </main>
+
+  <!-- Abre a configuração do PDF em diálogo nativo, com páginas, sumário, pauta e papel, validando o intervalo antes de gerar para evitar arquivos errados (H5, H9, requisito do modal). -->
+  <dialog id="dlg-pdf" class="dlg" aria-labelledby="dlg-pdf-titulo">
+    <form id="form-pdf" class="p-6 space-y-5" novalidate>
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="dlg-pdf-titulo" class="text-xl font-extrabold">Exportar PDF</h2>
+        <button type="button" class="btn btn-ghost !px-3" data-close aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+
+      <fieldset>
+        <legend class="block text-sm font-semibold mb-2">Quais páginas?</legend>
+        <div class="grid sm:grid-cols-3 gap-2">
+          <label class="opt"><input type="radio" name="escopo" value="todas" checked><span class="opt-box">Todas as páginas</span></label>
+          <label class="opt"><input id="pdf-escopo-atual" type="radio" name="escopo" value="atual"><span class="opt-box">Só a página atual</span></label>
+          <label class="opt"><input type="radio" name="escopo" value="intervalo"><span class="opt-box">Um intervalo</span></label>
+        </div>
+        <!-- Habilita os campos de intervalo só quando essa opção está escolhida e valida os números com mensagens claras, prevenindo páginas inexistentes (H5, H9). -->
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <label for="pdf-de" class="block text-xs font-semibold mb-1">Da página</label>
+            <input id="pdf-de" class="input" type="number" name="de" min="1" inputmode="numeric" data-rule="pdfDe" aria-describedby="pdf-de-erro" disabled>
+            <p id="pdf-de-erro" class="field-error" role="alert"></p>
+          </div>
+          <div>
+            <label for="pdf-ate" class="block text-xs font-semibold mb-1">Até a página</label>
+            <input id="pdf-ate" class="input" type="number" name="ate" min="1" inputmode="numeric" data-rule="pdfAte" aria-describedby="pdf-ate-erro" disabled>
+            <p id="pdf-ate-erro" class="field-error" role="alert"></p>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Oferece as opções de conteúdo como caixas de seleção com explicação ao lado, para o usuário saber o efeito de cada uma antes de marcar (H6, H10). -->
+      <fieldset class="space-y-3">
+        <legend class="block text-sm font-semibold mb-2">O que incluir?</legend>
+        <label class="flex items-start gap-3 text-sm">
+          <input id="pdf-toc" type="checkbox" name="toc" class="mt-1 h-5 w-5" style="accent-color: var(--accent)">
+          <span><strong>Sumário no início</strong><br><span id="pdf-toc-hint" class="text-xs text-muted"></span></span>
+        </label>
+        <label class="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="linhas" checked class="mt-1 h-5 w-5" style="accent-color: var(--accent)">
+          <span><strong>Exportar com linhas/pautas?</strong><br><span class="text-xs text-muted">Desmarque para um PDF limpo, como folha sulfite. Os traços de divisão do Cornell continuam.</span></span>
+        </label>
+      </fieldset>
+
+      <div>
+        <label for="pdf-papel" class="block text-sm font-semibold mb-1">Papel</label>
+        <select id="pdf-papel" class="input" name="papel">
+          <option value="land">A4 paisagem (melhor encaixe da folha)</option>
+          <option value="port">A4 retrato</option>
+        </select>
+      </div>
+
+      <!-- Resume em tempo real o que será exportado e explica o passo final de salvar como PDF, mantendo o usuário informado antes de confirmar (H1, H10). -->
+      <div class="rounded-2xl p-4 text-sm bg-sage-soft">
+        <p id="pdf-resumo" class="font-bold" role="status"></p>
+        <p class="mt-1 text-xs text-muted">O fundo sai sempre claro, para não gastar tinta. Na janela de impressão que vai abrir, escolha Salvar como PDF. Use o Chrome ou o Edge para manter os links do sumário clicáveis.</p>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-pdf"/></svg>Exportar PDF</button>
+      </div>
+    </form>
+  </dialog>
 </div>
+
+<!-- Guarda, fora da tela, as páginas montadas para o PDF e define dinamicamente o tamanho do papel de impressão, sem aparecer para o usuário (requisito de exportação). -->
+<div id="print-root" class="print-light" aria-hidden="true"></div>
+<style id="print-page-style"></style>
 
 </body>
 </html>

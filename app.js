@@ -40,19 +40,23 @@
   // Escolhe singular ou plural conforme o número para as mensagens soarem naturais, como uma pessoa falaria (H2 mundo real).
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
-  // Gera ids curtos e quase únicos combinando hora e aleatório, suficientes para identificar matérias, cadernos e páginas localmente.
+  // Limita um número a um intervalo, usado em posições, tamanhos e cores para nada sair dos limites permitidos (H5).
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  // Gera ids curtos e quase únicos combinando hora e aleatório, suficientes para identificar matérias, cadernos, páginas e objetos localmente.
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ---------- Armazenamento ----------
 
-  // Lê e grava JSON no localStorage dentro de try/catch para o site continuar funcionando mesmo se o navegador bloquear o armazenamento (H5).
+  // Lê e grava JSON no localStorage dentro de try/catch e informa se gravou, para o app avisar quando o armazenamento estiver cheio (H5, H9).
   const store = {
     get(key, fallback) {
       try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; }
       catch { return fallback; }
     },
     set(key, value) {
-      try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* sem armazenamento: segue sem salvar */ }
+      try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+      catch { return false; }
     }
   };
 
@@ -350,7 +354,7 @@
     data = saved && Array.isArray(saved.materias) ? saved : { materias: [] };
   }
 
-  // Salva o armário inteiro a cada mudança para nada se perder se o usuário fechar a aba sem avisar (H1, H5).
+  // Salva o armário inteiro a cada mudança e devolve se deu certo, para nada se perder em silêncio quando o navegador recusar (H1, H5).
   const saveData = () => store.set(dataKey(), data);
 
   // Cria atalhos de consulta por id e contagem, evitando laços repetidos pelo código (legibilidade).
@@ -363,6 +367,9 @@
     }
     return null;
   }
+
+  // Cria uma página em branco com todos os campos que o editor espera, usada em cadernos novos, novas páginas e transbordo (H4 consistência).
+  const blankPage = c => ({ id: uid(), texto: '', html: '', cue: '', summary: '', postits: [], imagens: [], folha: c.folha || 'pauta' });
 
   // Dá um anel de destaque temporário a um elemento, reiniciando a animação, para o usuário achar na tela o que acabou de criar ou buscar (H1).
   function flash(el) {
@@ -614,7 +621,7 @@
     const cur = hsvToRgb(color.h, color.s, color.v);
     return ['r', 'g', 'b'].map((k, i) => {
       const raw = fc.elements[k].value;
-      return raw === '' ? cur[i] : Math.min(255, Math.max(0, Math.round(Number(raw)) || 0));
+      return raw === '' ? cur[i] : clamp(Math.round(Number(raw)) || 0, 0, 255);
     });
   }
   ['r', 'g', 'b'].forEach(k => {
@@ -683,7 +690,8 @@
       id = found.c.id;
       toast('Caderno "' + titulo + '" atualizado.');
     } else {
-      const novo = { id: uid(), titulo, cor, folha, criadoEm: new Date().toISOString(), paginas: [{ id: uid(), texto: '', html: '', cue: '', summary: '', postits: [] }] };
+      const novo = { id: uid(), titulo, cor, folha, criadoEm: new Date().toISOString(), paginas: [] };
+      novo.paginas.push(blankPage(novo));
       destino.cadernos.push(novo);
       id = novo.id;
       toast('Caderno "' + titulo + '" criado em ' + destino.nome + '.');
@@ -802,6 +810,10 @@
   const MAX_FONT = Math.floor(ROW * 0.75);
   const SIZES = [12, 14, 16, 18, 20, 22, 24];
 
+  // Define a barreira de 38px (cerca de 1 cm) entre objeto e texto e a largura mínima de 120px que o texto precisa ter, senão a linha inteira é liberada ao objeto (requisito de 1 cm).
+  const BARRIER = 38;
+  const MIN_TEXT = 120;
+
   // Guarda as três famílias homologadas com alternativas, porque Calibri não existe em todo sistema e a pauta não pode depender dela (H5).
   const FONTS = {
     montserrat: "'Montserrat', Arial, sans-serif",
@@ -809,15 +821,44 @@
     calibri: "Calibri, Carlito, 'Segoe UI', Arial, sans-serif"
   };
 
-  // Reúne as três zonas editáveis da folha e o estado do editor, usados por todas as funções de edição, paginação e salvamento.
+  // Lista as cores de post-it e de fita adesiva da paleta do projeto, para as notas combinarem com o restante da interface (H4 consistência).
+  const POSTIT_COLORS = [
+    { nome: 'Beeswax', hex: '#EAB05C' },
+    { nome: 'Darlington', hex: '#B6CFB9' },
+    { nome: 'Rosa', hex: '#F2C9C0' },
+    { nome: 'Creme', hex: '#F6E7B4' }
+  ];
+  const TAPES = ['', '#EAB05C', '#B6CFB9', '#D95122'];
+
+  // Reúne as três zonas editáveis, a folha, a área de escrita, a camada de objetos e o estado do editor, usados por todas as funções abaixo.
   const ZONES = { cue: $('#z-cue'), notes: $('#z-notes'), summary: $('#z-summary') };
   const sheet = $('#sheet');
+  const bodyEl = $('.sheet-body', sheet);
+  const layer = $('#obj-layer');
+  const guide = $('#snap-guide');
+  const fit = $('#sheet-fit');
   let ed = null;
   let activeZone = null;
   let savedRange = null;
   let lastSize = 18;
   let hold = false;
   let saveTimer;
+  let scale = 1;
+  let spilling = false;
+  let selId = null;
+  let flowRaf = 0;
+  let warnedFull = false;
+
+  // Cria uma cópia invisível da folha, fora da tela, para medir quanto texto cabe nas páginas seguintes sem mexer na página que o usuário vê (requisito do transbordo).
+  const ghost = sheet.cloneNode(true);
+  ghost.removeAttribute('id');
+  $$('[id]', ghost).forEach(n => n.removeAttribute('id'));
+  $$('.obj-layer', ghost).forEach(n => n.remove());
+  ghost.classList.add('ghost');
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.inert = true;
+  document.body.append(ghost);
+  const gz = { cue: $('.zone-cue', ghost), notes: $('.zone-notes', ghost), summary: $('.zone-summary', ghost) };
 
   // Limpa HTML guardado removendo scripts, atributos de evento e links javascript, para o conteúdo salvo nunca executar código ao reabrir (H5).
   function sanitize(html) {
@@ -828,6 +869,13 @@
       [...el.attributes].forEach(a => { if (/^on/i.test(a.name) || /javascript:/i.test(a.value)) el.removeAttribute(a.name); });
     });
     return tpl.innerHTML;
+  }
+
+  // Extrai só o texto de um trecho de HTML, usado para manter o texto de busca das páginas atualizado depois do transbordo (requisito da busca).
+  function textOf(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html || '';
+    return tpl.content.textContent.trim();
   }
 
   // Descobre a qual zona editável um nó pertence, ignorando qualquer coisa fora da folha, para a barra de ferramentas só agir onde há texto (H5).
@@ -865,7 +913,247 @@
     if (!sel.rangeCount || !zone) return null;
     let n = sel.anchorNode;
     while (n && n.parentNode !== zone) n = n.parentNode;
-    return n && n.nodeType === 1 ? n : null;
+    return n && n.nodeType === 1 && !n.classList.contains('flow') ? n : null;
+  }
+
+  // Posiciona o cursor logo antes de um nó e devolve o foco à área de notas, usado para o cursor acompanhar o texto que passou para outra página (H1, H7).
+  function caretBefore(node) {
+    ZONES.notes.focus({ preventScroll: true });
+    const r = document.createRange();
+    r.setStartBefore(node);
+    r.collapse(true);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
+  // Marca a zona como vazia, para a dica "Comece a escrever" aparecer só na área de notas sem texto, mesmo havendo espaçadores dentro (H6).
+  function markEmpty(zone) {
+    zone.classList.toggle('is-empty', zone === ZONES.notes && !zone.textContent.trim() && !zone.querySelector('.chk-line'));
+  }
+
+  // Serializa a zona sem os espaçadores de recuo nem o marcador de cursor, para o que é salvo ser só o conteúdo do usuário (H5, requisito de persistência).
+  function serializeZone(zone, keepMarker) {
+    const c = zone.cloneNode(true);
+    $$('.flow', c).forEach(n => n.remove());
+    if (!keepMarker) $$('[data-caret]', c).forEach(n => n.remove());
+    return c.innerHTML;
+  }
+
+  // ---------- Motor anticolisão: recuo de 1 cm por espaçadores flutuantes ----------
+
+  // Calcula, linha a linha, quanto cada lado da zona deve ser reservado para os objetos, somando 1 cm, e libera a linha inteira quando sobraria pouco texto (requisito de colisão).
+  function computeBands(zone, objs) {
+    const zl = zone.offsetLeft, zt = zone.offsetTop, zw = zone.offsetWidth, zh = zone.clientHeight;
+    const cs = getComputedStyle(zone);
+    const contentL = zl + parseFloat(cs.paddingLeft), contentR = zl + zw - parseFloat(cs.paddingRight);
+    const contentW = Math.max(0, contentR - contentL), center = (contentL + contentR) / 2;
+    const rows = Math.round(zh / ROW);
+    const left = new Array(rows).fill(0), right = new Array(rows).fill(0);
+    objs.forEach(o => {
+      const r0 = Math.max(0, Math.floor((o.y - zt) / ROW)), r1 = Math.min(rows - 1, Math.ceil((o.y + o.h - zt) / ROW) - 1);
+      if (r1 < r0 || o.x + o.w + BARRIER <= contentL || o.x - BARRIER >= contentR) return;
+      const toLeft = (o.x + o.w / 2) < center;
+      for (let r = r0; r <= r1; r++) {
+        if (toLeft) left[r] = Math.max(left[r], o.x + o.w + BARRIER - contentL);
+        else right[r] = Math.max(right[r], contentR - (o.x - BARRIER));
+      }
+    });
+    for (let r = 0; r < rows; r++) {
+      left[r] = Math.ceil(clamp(left[r], 0, contentW));
+      right[r] = Math.ceil(clamp(right[r], 0, contentW));
+      if (left[r] + right[r] > contentW - MIN_TEXT && (left[r] || right[r])) { left[r] = Math.ceil(contentW); right[r] = 0; }
+    }
+    return { left: bandsOf(left), right: bandsOf(right) };
+  }
+
+  // Junta linhas vizinhas com a mesma largura em faixas, para criar poucos espaçadores em vez de um por linha (performance).
+  function bandsOf(arr) {
+    const out = [];
+    let i = 0;
+    while (i < arr.length) {
+      if (!arr[i]) { i++; continue; }
+      let j = i;
+      while (j + 1 < arr.length && arr[j + 1] === arr[i]) j++;
+      out.push({ r0: i, r1: j, w: arr[i] });
+      i = j + 1;
+    }
+    return out;
+  }
+
+  // Cria os divs flutuantes de um lado: um empurrador de largura zero até a faixa e o espaçador da faixa, usando clear para empilhar na altura certa (requisito de recuo).
+  function buildSide(bands, side) {
+    const els = [];
+    let row = 0;
+    const mk = (w, hgt) => {
+      const d = document.createElement('div');
+      d.className = 'flow';
+      d.setAttribute('contenteditable', 'false');
+      d.setAttribute('aria-hidden', 'true');
+      d.style.cssText = 'float:' + side + ';clear:' + (els.length ? side : 'none') + ';width:' + w + 'px;height:' + hgt + 'px';
+      return d;
+    };
+    bands.forEach(b => {
+      if (b.r0 > row) els.push(mk(0, (b.r0 - row) * ROW));
+      els.push(mk(b.w, (b.r1 - b.r0 + 1) * ROW));
+      row = b.r1 + 1;
+    });
+    return els;
+  }
+
+  // Aplica os espaçadores nas zonas visíveis só quando algo mudou, comparando uma assinatura, para o texto contornar os objetos sem refazer o DOM à toa (H1, performance).
+  function applyFlow(zs, objs, force) {
+    Object.values(zs).forEach(zone => {
+      const have = $$(':scope > .flow', zone);
+      if (zone.offsetParent === null) { have.forEach(n => n.remove()); zone._sig = ''; zone._n = 0; return; }
+      const spec = computeBands(zone, objs);
+      const sig = JSON.stringify(spec);
+      if (!force && zone._sig === sig && have.length === zone._n) return;
+      have.forEach(n => n.remove());
+      const els = [...buildSide(spec.left, 'left'), ...buildSide(spec.right, 'right')];
+      zone.prepend(...els);
+      zone._sig = sig;
+      zone._n = els.length;
+    });
+  }
+
+  // Recalcula o recuo da página aberta a partir dos objetos dela e atualiza a dica de zona vazia, mantendo texto e objetos sempre separados (requisito de colisão).
+  function reflowAll(force) {
+    if (!ed) return;
+    applyFlow(ZONES, objectsOf(curPage()), force);
+    Object.values(ZONES).forEach(markEmpty);
+  }
+
+  // Agrupa vários recálculos de uma sequência de movimentos do ponteiro em um por quadro de animação, para o arrasto continuar fluido (performance).
+  function requestFlow() {
+    if (flowRaf) return;
+    flowRaf = requestAnimationFrame(() => { flowRaf = 0; reflowAll(); });
+  }
+
+  // ---------- Motor de transbordo: o excedente vai para o topo da página seguinte ----------
+
+  // Diz se o conteúdo passou da altura física da zona, o gatilho de todo o transbordo (requisito de overflow).
+  const overflows = zone => zone.scrollHeight > zone.clientHeight + 1;
+
+  // Embrulha textos soltos no topo da zona em divs, para cada linha ser um bloco que pode ser movido inteiro (requisito de blocos de linha).
+  function wrapStrays(zone) {
+    let run = [];
+    const flush = () => {
+      if (!run.length) return;
+      const d = document.createElement('div');
+      run[0].before(d);
+      d.append(...run);
+      run = [];
+    };
+    [...zone.childNodes].forEach(n => {
+      if (n.nodeType === 1 && (n.classList.contains('flow') || n.tagName === 'DIV')) flush();
+      else if (n.nodeType === 3 && !n.data.trim() && !run.length) n.remove();
+      else run.push(n);
+    });
+    flush();
+  }
+
+  // Acha o início da última palavra do bloco, para separar o texto que não cabe palavra por palavra sem cortar no meio (requisito de transbordo).
+  function lastWordPos(block) {
+    const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    let last = null, n;
+    while ((n = tw.nextNode())) if (/\S/.test(n.data)) last = n;
+    if (!last) return null;
+    return { node: last, offset: /\S+\s*$/.exec(last.data).index };
+  }
+
+  // Tira do fim da zona os blocos e palavras que passam da última linha e devolve em HTML, preservando negrito, cores e checklist, para irem à página seguinte (requisito de overflow).
+  function spillZone(zone) {
+    if (!overflows(zone)) return '';
+    wrapStrays(zone);
+    const tail = document.createElement('div');
+    let guard = 0;
+    while (overflows(zone) && guard++ < 6000) {
+      const blocks = $$(':scope > div:not(.flow)', zone);
+      const last = blocks[blocks.length - 1];
+      if (!last) break;
+      if (last.offsetTop - zone.offsetTop >= zone.clientHeight || !lastWordPos(last)) { tail.prepend(last); continue; }
+      const part = last.cloneNode(false);
+      part.classList.remove('chk-line');
+      part.removeAttribute('data-done');
+      while (overflows(zone)) {
+        const pos = lastWordPos(last);
+        if (!pos) break;
+        const r = document.createRange();
+        r.setStart(pos.node, pos.offset);
+        r.setEnd(last, last.childNodes.length);
+        part.prepend(r.extractContents());
+      }
+      if (part.childNodes.length) tail.prepend(part);
+      if (!last.textContent.trim() && !last.querySelector('[data-caret]')) last.remove();
+    }
+    return tail.innerHTML;
+  }
+
+  // Carrega uma página na cópia invisível, aplica os objetos dela, tira o que não cabe e guarda o conteúdo ajustado, devolvendo o excedente para a próxima (requisito de cascata).
+  function measureAndSpill(pg) {
+    ghost.className = 'sheet ghost f-' + (pg.folha || ed.c.folha || 'pauta');
+    gz.notes.innerHTML = sanitize(pg.html);
+    applyFlow(gz, objectsOf(pg), true);
+    const out = spillZone(gz.notes);
+    pg.html = serializeZone(gz.notes, true);
+    pg.texto = [textOf(pg.cue), gz.notes.innerText.trim(), textOf(pg.summary)].filter(Boolean).join('\n');
+    return out;
+  }
+
+  // Insere um marcador invisível no cursor antes de mover texto, para depois levar o cursor junto com a palavra que mudou de página (H1, H7).
+  function dropMarker() {
+    const sel = getSelection();
+    if (!sel.rangeCount) return null;
+    const r = sel.getRangeAt(0);
+    if (!r.collapsed || !ZONES.notes.contains(r.endContainer)) return null;
+    const m = document.createElement('span');
+    m.setAttribute('data-caret', '');
+    r.insertNode(m);
+    return m;
+  }
+
+  // Resolve o transbordo da área de notas: move o excedente para o topo da próxima página, cria páginas se preciso, repete em cascata e leva o cursor junto (requisito de overflow engine).
+  function resolveOverflow() {
+    const notes = ZONES.notes;
+    if (!ed || spilling || notes.offsetParent === null || !overflows(notes)) return false;
+    spilling = true;
+    try {
+      const marker = dropMarker();
+      let html = spillZone(notes);
+      if (!html) { marker?.remove(); return false; }
+      collectPage();
+      let k = ed.i + 1;
+      while (html && k < 500) {
+        if (k >= ed.c.paginas.length) ed.c.paginas.push(blankPage(ed.c));
+        const pg = ed.c.paginas[k];
+        pg.html = html + (pg.html || '');
+        html = measureAndSpill(pg);
+        k++;
+      }
+      let moved = -1;
+      if (marker) {
+        if (notes.contains(marker)) { caretBefore(marker); marker.remove(); notes.normalize(); }
+        else moved = ed.c.paginas.findIndex((p, i) => i > ed.i && (p.html || '').includes('data-caret'));
+      }
+      saveData();
+      if (moved > -1) {
+        ed.i = moved;
+        loadPage(true);
+        const m = notes.querySelector('[data-caret]');
+        if (m) { caretBefore(m); m.remove(); notes.normalize(); }
+        collectPage();
+        saveData();
+        toast('O texto passou do fim da página e continuou na página ' + (moved + 1) + '.');
+      } else {
+        updatePageChrome();
+        toast('Parte do texto passou do fim da página e foi para a página ' + (ed.i + 2) + '.');
+      }
+      setSaveStatus('Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    } finally {
+      spilling = false;
+    }
+    return true;
   }
 
   // ---------- Miolo do caderno: formatação com baseline travada ----------
@@ -894,18 +1182,20 @@
     }
   }
 
-  // Desfaz a última digitação quando a zona passa da altura física da página e avisa com atalho para criar outra, prevenindo texto cortado (H5, H9).
+  // Desfaz a última digitação nas zonas laterais do Cornell quando passam da altura física e avisa com atalho para criar outra página, prevenindo texto cortado (H5, H9).
   function guardOverflow(zone) {
-    if (!zone || zone.scrollHeight <= zone.clientHeight + 1) return false;
+    if (!zone || !overflows(zone)) return false;
     document.execCommand('undo');
     zone.scrollTop = 0;
-    toast('Esta página está cheia. Crie uma nova página para continuar.', { label: 'Nova página', onClick: newPage });
+    toast('Esta área está cheia. Use a área de notas ou crie uma nova página.', { label: 'Nova página', onClick: newPage });
     return true;
   }
 
-  // Fecha toda edição agendando o salvamento e atualizando a barra, para o estado mostrado sempre bater com o texto sob o cursor (H1).
+  // Fecha toda edição resolvendo transbordo, agendando o salvamento e atualizando a barra, para o estado mostrado sempre bater com o texto sob o cursor (H1).
   function afterEdit() {
-    if (!guardOverflow(activeZone)) scheduleSave();
+    const z = activeZone;
+    const handled = z === ZONES.notes ? resolveOverflow() : guardOverflow(z);
+    if (!handled) scheduleSave();
     updateToolbarState();
   }
 
@@ -960,16 +1250,24 @@
   $('#tb-cor-livre').addEventListener('change', e => exec('foreColor', e.target.value));
   $$('[data-hl]').forEach(b => b.addEventListener('click', () => exec('hiliteColor', b.dataset.hl)));
   $('#tb-checklist').addEventListener('click', toggleChecklist);
+  $('#tb-postit').addEventListener('click', addPostit);
+  $('#tb-imagem').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) await addImageFile(f);
+  });
 
   // Transforma a linha do cursor em item de checklist ou volta ao normal, usando só uma classe para o marcador ficar alinhado à pauta (H3, H5).
   function toggleChecklist() {
     if (!restoreSelection()) { noSelection(); return; }
     let block = currentBlock();
     if (!block) {
-      if (!activeZone.firstChild) {
-        activeZone.innerHTML = '<div><br></div>';
+      const hasContent = [...activeZone.childNodes].some(n => !(n.nodeType === 1 && n.classList.contains('flow')));
+      if (!hasContent) {
+        const d = h('div', {}, h('br'));
+        activeZone.append(d);
         const r = document.createRange();
-        r.setStart(activeZone.firstChild, 0);
+        r.setStart(d, 0);
         r.collapse(true);
         const s = getSelection();
         s.removeAllRanges();
@@ -997,22 +1295,26 @@
   // Configura cada zona com defesas e atalhos, mantendo a escrita limpa e dentro da página, sem depender de memorizar regras (H3, H5, H7).
   document.execCommand('defaultParagraphSeparator', false, 'div');
   Object.values(ZONES).forEach(zone => {
-    // Normaliza a cada digitação, impede passar do limite da página e agenda o salvamento, para nada quebrar a pauta nem se perder (H1, H5).
+    // Normaliza a cada digitação, recompõe espaçadores apagados sem querer, resolve o transbordo e agenda o salvamento, para nada quebrar a pauta nem se perder (H1, H5).
     zone.addEventListener('input', () => {
       hold = false;
-      if (zone.innerHTML === '<br>') zone.innerHTML = '';
       normalizeZone(zone, false);
-      if (!guardOverflow(zone)) scheduleSave();
+      if ($$(':scope > .flow', zone).length !== (zone._n || 0)) reflowAll(true);
+      markEmpty(zone);
+      const handled = zone === ZONES.notes ? resolveOverflow() : guardOverflow(zone);
+      if (!handled) scheduleSave();
     });
 
-    // Cola só texto puro para formatações de fora (tamanhos, fontes, cores) nunca quebrarem a linha de 32px nem a baseline (H5, Baseline Lock).
+    // Cola imagens como objetos da página e texto sempre como texto puro, para formatações de fora nunca quebrarem a linha de 32px (H5, Baseline Lock).
     zone.addEventListener('paste', e => {
       e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      document.execCommand('insertText', false, text);
+      const cd = e.clipboardData || window.clipboardData;
+      const img = cd && [...cd.files].find(f => f.type.startsWith('image/'));
+      if (img) { addImageFile(img); return; }
+      document.execCommand('insertText', false, cd.getData('text/plain'));
     });
 
-    // Bloqueia soltar arquivos ou conteúdo rico na folha, pois imagens e objetos entram pelo motor da próxima etapa e não por arrasto solto (H5).
+    // Bloqueia soltar conteúdo rico dentro do texto, pois arquivos de imagem são tratados pela folha como objetos, e o resto quebraria a formatação (H5).
     zone.addEventListener('drop', e => e.preventDefault());
 
     // Alterna o item de checklist ao clicar na área do círculo, a faixa de 28px à esquerda da linha, sem inserir elementos extras (H6, H7).
@@ -1039,6 +1341,317 @@
     });
   });
 
+  // ---------- Objetos: post-its e imagens com snap-to-line ----------
+
+  // Calcula o tamanho útil da área de escrita, usado para limitar posições e tamanhos dos objetos dentro da folha (H5 prevenção de erros).
+  const dims = () => ({ W: bodyEl.clientWidth, H: bodyEl.clientHeight });
+
+  // Devolve a página aberta e a lista dos seus objetos, para as demais funções não repetirem a mesma consulta (legibilidade).
+  const curPage = () => ed.c.paginas[ed.i];
+  const allObjs = p => [...(p.postits || []), ...(p.imagens || [])];
+  const objectsOf = p => allObjs(p).map(o => ({ x: o.x, y: o.y, w: o.w, h: o.h }));
+
+  // Corrige qualquer objeto vindo do armazenamento para tamanhos em linhas inteiras, posição dentro da folha e cores válidas, protegendo o editor de dados antigos ou alterados (H5).
+  function normalizeObj(o, tipo) {
+    const { W, H } = dims();
+    o.tipo = tipo;
+    o.h = clamp(Math.round((o.h || 4 * ROW) / ROW) * ROW, ROW, H);
+    o.w = clamp(Math.round(o.w || 150), 48, W);
+    o.x = clamp(Math.round(o.x || 0), 0, W - o.w);
+    o.y = clamp(Math.round((o.y || 0) / ROW) * ROW, 0, H - o.h);
+    if (tipo === 'postit') { if (!/^#[0-9a-f]{6}$/i.test(o.cor || '')) o.cor = POSTIT_COLORS[0].hex; o.texto = String(o.texto || ''); }
+    else { if (!/^data:image\//.test(o.src || '')) o.src = ''; if (!/^#[0-9a-f]{6}$/i.test(o.fita || '')) o.fita = ''; o.ratio = o.ratio > 0 ? o.ratio : 1; }
+    return o;
+  }
+
+  // Posiciona o elemento do objeto pelas coordenadas e vira a barra de ações para a esquerda quando o objeto está na metade direita, evitando que ela saia da folha (H5).
+  function place(el, o) {
+    el.style.left = o.x + 'px';
+    el.style.top = o.y + 'px';
+    el.style.width = o.w + 'px';
+    el.style.height = o.h + 'px';
+    $('.obj-bar', el)?.classList.toggle('bar-right', o.x > dims().W / 2);
+  }
+
+  // Seleciona um objeto, mostrando o contorno e a barra de ações dele, e desmarca os outros, para ficar claro com qual deles o usuário está mexendo (H1).
+  function selectObj(id) {
+    selId = id;
+    $$('.obj', layer).forEach(el => el.classList.toggle('sel', el.id === 'obj-' + id));
+  }
+  document.addEventListener('pointerdown', e => { if (ed && !e.target.closest('.obj')) selectObj(null); });
+
+  // Reduz a fonte do post-it de 18px até 9px até o texto caber, e devolve se coube, para a escrita nunca vazar do quadrado (requisito de auto-resize).
+  function fitText(el) {
+    let fs = 18;
+    el.style.fontSize = fs + 'px';
+    while (fs > 9 && el.scrollHeight > el.clientHeight + 1) { fs--; el.style.fontSize = fs + 'px'; }
+    return el.scrollHeight <= el.clientHeight + 1;
+  }
+
+  // Procura a primeira linha livre onde o objeto não bate em outro, começando pela segunda linha da página, para novos objetos não nascerem empilhados (H5).
+  function freeY(p, o) {
+    const { H } = dims();
+    const others = allObjs(p);
+    for (let y = ROW; y + o.h <= H; y += ROW) {
+      if (!others.some(q => o.x < q.x + q.w && o.x + o.w > q.x && y < q.y + q.h && y + o.h > q.y)) return y;
+    }
+    return ROW;
+  }
+
+  // Aplica a mudança de objetos: recalcula o recuo do texto, resolve o transbordo se o texto passou do fim e agenda o salvamento, o ciclo completo do motor (requisito anticolisão).
+  function settleObjects() {
+    reflowAll();
+    if (!resolveOverflow()) scheduleSave();
+  }
+
+  // Desenha todos os objetos da página aberta na camada, ajustando a fonte dos post-its, para a tela refletir exatamente os dados salvos (H1).
+  function renderObjects() {
+    const p = curPage();
+    p.postits.forEach(o => normalizeObj(o, 'postit'));
+    p.imagens.forEach(o => normalizeObj(o, 'imagem'));
+    layer.replaceChildren(guide, ...allObjs(p).map(buildObj));
+    $$('.pit-text', layer).forEach(fitText);
+    selId = null;
+  }
+
+  // Monta a barra de ações do objeto: cores ou fita, diminuir, aumentar e remover, sempre com rótulo e dica, dentro do alcance do objeto selecionado (H6, H7).
+  function buildBar(o, el) {
+    const btn = (label, ic, fn) => h('button', { type: 'button', class: 'obj-btn', 'aria-label': label, title: label, onclick: fn }, icon(ic));
+    const bar = h('div', { class: 'obj-bar', role: 'toolbar', 'aria-label': 'Ações do objeto' });
+    if (o.tipo === 'postit') {
+      POSTIT_COLORS.forEach(c => bar.append(h('button', {
+        type: 'button', class: 'sw', style: 'background:' + c.hex, 'aria-label': 'Cor do post-it: ' + c.nome, title: c.nome,
+        onclick: () => { o.cor = c.hex; el.style.background = c.hex; scheduleSave(); }
+      })));
+    } else {
+      const tapeBtn = btn('Fita adesiva decorativa. Clique para trocar a cor ou remover.', 'tape', () => cycleTape(o, el, tapeBtn));
+      tapeBtn.setAttribute('aria-pressed', String(Boolean(o.fita)));
+      bar.append(tapeBtn);
+    }
+    bar.append(btn('Diminuir uma linha', 'minus', () => resizeObj(o, -1)), btn('Aumentar uma linha', 'plus', () => resizeObj(o, 1)), btn('Remover', 'trash', () => deleteObj(o)));
+    return bar;
+  }
+
+  // Troca a fita do topo da imagem entre as cores da paleta e nenhuma, criando ou removendo o elemento decorativo, e salva (requisito de washi tape).
+  function cycleTape(o, el, btn) {
+    o.fita = TAPES[(TAPES.indexOf(o.fita || '') + 1) % TAPES.length];
+    let t = $('.obj-tape', el);
+    if (o.fita) {
+      if (!t) { t = h('span', { class: 'obj-tape' }); el.append(t); }
+      t.style.background = o.fita;
+    } else if (t) t.remove();
+    btn.setAttribute('aria-pressed', String(Boolean(o.fita)));
+    scheduleSave();
+  }
+
+  // Cria o elemento de um objeto, post-it com faixa de arraste e texto editável ou imagem com fita, ligando arrastar, selecionar e teclado (requisitos de post-it e imagem).
+  function buildObj(o) {
+    const isPit = o.tipo === 'postit';
+    const el = h('div', { class: 'obj ' + (isPit ? 'pit' : 'img-obj'), id: 'obj-' + o.id, tabindex: '0', role: 'group', 'aria-label': isPit ? 'Post-it' : 'Imagem colada' });
+    if (isPit) {
+      el.style.background = o.cor;
+      const grip = h('div', { class: 'pit-grip', title: 'Arraste para mover o post-it', 'aria-hidden': 'true' }, h('span', { class: 'grip-dots' }));
+      const text = h('div', { class: 'pit-text', contenteditable: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Texto do post-it', 'data-ph': 'Escreva uma nota' });
+      text.textContent = o.texto;
+      grip.addEventListener('pointerdown', e => startDrag(e, o, el));
+      text.addEventListener('input', () => {
+        o.texto = text.innerText.replace(/\n$/, '');
+        if (!fitText(text)) {
+          document.execCommand('undo');
+          o.texto = text.innerText.replace(/\n$/, '');
+          toast('Este post-it está cheio. Use o botão + para aumentá-lo.');
+        }
+        scheduleSave();
+      });
+      text.addEventListener('paste', e => {
+        e.preventDefault();
+        document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+      });
+      el.append(grip, text);
+    } else {
+      const img = h('img', { src: o.src, alt: 'Imagem colada na página', draggable: 'false' });
+      img.addEventListener('pointerdown', e => startDrag(e, o, el));
+      el.append(img);
+      if (o.fita) el.append(h('span', { class: 'obj-tape', style: 'background:' + o.fita }));
+    }
+    el.append(buildBar(o, el));
+    place(el, o);
+    el.addEventListener('focusin', () => selectObj(o.id));
+    el.addEventListener('pointerdown', () => selectObj(o.id));
+    el.addEventListener('keydown', e => objKey(e, o, el));
+    return el;
+  }
+
+  // Move, remove ou desmarca o objeto pelo teclado quando ele mesmo está em foco, setas por linha ou 10 pixels, dando a mesma função do mouse a quem não o usa (H7, acessibilidade).
+  function objKey(e, o, el) {
+    if (e.target !== el) return;
+    const { W, H } = dims();
+    const big = e.shiftKey ? 4 : 1;
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteObj(o); return; }
+    if (e.key === 'Escape') { selectObj(null); return; }
+    if (e.key === 'ArrowUp') o.y = clamp(o.y - ROW, 0, H - o.h);
+    else if (e.key === 'ArrowDown') o.y = clamp(o.y + ROW, 0, H - o.h);
+    else if (e.key === 'ArrowLeft') o.x = clamp(o.x - 10 * big, 0, W - o.w);
+    else if (e.key === 'ArrowRight') o.x = clamp(o.x + 10 * big, 0, W - o.w);
+    else return;
+    e.preventDefault();
+    place(el, o);
+    settleObjects();
+  }
+
+  // Arrasta o objeto com o ponteiro: ele segue a mão, o guia mostra as linhas do encaixe, o texto recua ao vivo e ao soltar o objeto trava no múltiplo de 32px (requisito de snap-to-line).
+  function startDrag(e, o, el) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    selectObj(o.id);
+    const { W, H } = dims();
+    const start = { px: e.clientX, py: e.clientY, x: o.x, y: o.y };
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('dragging');
+    guide.hidden = false;
+    guide.style.top = o.y + 'px';
+    guide.style.height = o.h + 'px';
+    const move = ev => {
+      const rawX = clamp(start.x + (ev.clientX - start.px) / scale, 0, W - o.w);
+      const rawY = clamp(start.y + (ev.clientY - start.py) / scale, 0, H - o.h);
+      o.x = Math.round(rawX);
+      o.y = clamp(Math.round(rawY / ROW) * ROW, 0, H - o.h);
+      el.style.left = o.x + 'px';
+      el.style.top = rawY + 'px';
+      guide.style.top = o.y + 'px';
+      requestFlow();
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.classList.remove('dragging');
+      guide.hidden = true;
+      place(el, o);
+      settleObjects();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  }
+
+  // Aumenta ou diminui o objeto uma linha por vez, mantendo altura em múltiplos de 32px, proporção da imagem e limites da folha, e avisa quando chega ao limite (H1, H9).
+  function resizeObj(o, delta) {
+    const el = $('#obj-' + o.id);
+    const rows = o.h / ROW + delta;
+    const { W, H } = dims();
+    if (o.tipo === 'postit') {
+      if (rows < 2 || rows > 10) { toast(rows < 2 ? 'Este é o menor tamanho do post-it.' : 'Este é o maior tamanho do post-it.'); return; }
+      o.h = rows * ROW;
+      o.w = 110 + rows * 10;
+    } else {
+      const w = Math.round(rows * ROW * o.ratio);
+      if (rows < 1 || w < 48) { toast('Esta é a menor imagem possível.'); return; }
+      if (rows > 18 || w > 560) { toast('Esta é a maior imagem possível.'); return; }
+      o.h = rows * ROW;
+      o.w = w;
+    }
+    o.x = clamp(o.x, 0, W - o.w);
+    o.y = clamp(o.y, 0, H - o.h);
+    place(el, o);
+    const text = $('.pit-text', el);
+    if (text) fitText(text);
+    settleObjects();
+  }
+
+  // Remove o objeto da página oferecendo Desfazer, devolvendo-o à mesma posição da lista, igual ao padrão do resto do app (H3, H5).
+  function deleteObj(o) {
+    const p = curPage();
+    const arr = o.tipo === 'postit' ? p.postits : p.imagens;
+    const i = arr.indexOf(o);
+    if (i < 0) return;
+    arr.splice(i, 1);
+    renderObjects();
+    settleObjects();
+    toast(o.tipo === 'postit' ? 'Post-it removido.' : 'Imagem removida.', {
+      label: 'Desfazer',
+      onClick: () => {
+        arr.splice(i, 0, o);
+        if (ed && curPage() === p) { renderObjects(); settleObjects(); } else saveData();
+      }
+    });
+  }
+
+  // Cola um post-it novo na lateral direita, na primeira linha livre, com cor da paleta e foco no texto, pronto para escrever (H7, requisito de post-it).
+  function addPostit() {
+    if (!ed) return;
+    const p = curPage(), rows = 4, w = 110 + rows * 10, { W } = dims();
+    const o = { id: uid(), tipo: 'postit', x: W - w - 24, y: 0, w, h: rows * ROW, cor: POSTIT_COLORS[p.postits.length % POSTIT_COLORS.length].hex, texto: '' };
+    o.y = freeY(p, o);
+    p.postits.push(o);
+    renderObjects();
+    selectObj(o.id);
+    $('#obj-' + o.id + ' .pit-text')?.focus();
+    settleObjects();
+    toast('Post-it criado. Arraste pela faixa de cima: ele encaixa nas linhas e o texto recua 1 cm.');
+  }
+
+  // Lê o arquivo de imagem, reduz o lado maior a 720px e o recodifica, mantendo PNG e GIF com transparência e JPEG nos demais, para caber no armazenamento do navegador (H5, performance).
+  async function readImage(file) {
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('tipo');
+    const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const s = Math.min(1, 720 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * s));
+    c.height = Math.max(1, Math.round(img.naturalHeight * s));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const keepAlpha = file.type === 'image/png' || file.type === 'image/gif';
+    return { src: c.toDataURL(keepAlpha ? 'image/png' : 'image/jpeg', 0.82), ratio: c.width / c.height };
+  }
+
+  // Cola a imagem na página com altura em linhas inteiras, no ponto solto ou na primeira linha livre, para o encaixe valer desde o primeiro instante (requisito de upload e snap).
+  async function addImageFile(file, at) {
+    if (!ed) return;
+    try {
+      const { src, ratio } = await readImage(file);
+      const p = curPage(), { W, H } = dims();
+      let rows = clamp(Math.round(240 / ratio / ROW), 1, 18);
+      let w = Math.round(rows * ROW * ratio);
+      while (w > 560 && rows > 1) { rows--; w = Math.round(rows * ROW * ratio); }
+      const o = { id: uid(), tipo: 'imagem', src, ratio, fita: '', w, h: rows * ROW, x: W - w - 24, y: 0 };
+      if (at) {
+        o.x = clamp(Math.round(at.x - w / 2), 0, W - w);
+        o.y = clamp(Math.round((at.y - o.h / 2) / ROW) * ROW, 0, H - o.h);
+      } else {
+        o.y = freeY(p, o);
+      }
+      p.imagens.push(o);
+      renderObjects();
+      selectObj(o.id);
+      toast('Imagem colada. Arraste para mover: ela encaixa nas linhas e o texto recua 1 cm.');
+      settleObjects();
+    } catch {
+      toast('Não consegui abrir essa imagem. Use um arquivo PNG, JPG, WEBP ou GIF.');
+    }
+  }
+
+  // Aceita imagens arrastadas do computador para a folha, calculando o ponto de soltura pela escala atual, outra forma de fazer a mesma tarefa (H7 flexibilidade).
+  sheet.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  sheet.addEventListener('drop', e => {
+    const f = e.dataTransfer && [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
+    if (!f) return;
+    e.preventDefault();
+    const r = bodyEl.getBoundingClientRect();
+    addImageFile(f, { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale });
+  });
+
+  // Ajusta a escala da folha de 780px para caber na largura da tela e reserva o espaço já reduzido, mantendo o texto quebrando igual em qualquer aparelho (UX responsivo, Baseline Lock).
+  function fitSheet() {
+    const avail = document.documentElement.clientWidth - 40 - 48;
+    scale = Math.min(1, Math.max(0.3, avail / 780));
+    sheet.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
+    fit.style.width = Math.round(780 * scale) + 'px';
+    fit.style.height = Math.round(sheet.offsetHeight * scale) + 'px';
+  }
+  window.addEventListener('resize', () => { if (ed) fitSheet(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (ed) { reflowAll(true); fitSheet(); } });
+
   // ---------- Miolo do caderno: páginas, abas e salvamento ----------
 
   // Mostra o estado do salvamento em texto curto, para o usuário saber se o que digitou já está guardado (H1 visibilidade do status).
@@ -1047,20 +1660,22 @@
   // Copia o conteúdo das zonas para os dados da página, guardando HTML para reabrir igual e texto puro para a busca global achar (requisito da busca).
   function collectPage() {
     if (!ed) return;
-    const p = ed.c.paginas[ed.i];
-    p.html = ZONES.notes.innerHTML;
-    p.cue = ZONES.cue.innerHTML;
-    p.summary = ZONES.summary.innerHTML;
+    const p = curPage();
+    p.html = serializeZone(ZONES.notes);
+    p.cue = serializeZone(ZONES.cue);
+    p.summary = serializeZone(ZONES.summary);
     p.texto = [ZONES.cue, ZONES.notes, ZONES.summary].map(z => z.innerText.trim()).filter(Boolean).join('\n');
   }
 
-  // Grava o caderno no armazenamento e confirma com a hora, usado ao trocar de página, sair da tela ou fechar a aba, para nada se perder (H1, H5).
+  // Grava o caderno e confirma com a hora, ou avisa claramente se o navegador recusou por falta de espaço, para nada se perder em silêncio (H1, H5, H9).
   function flushSave() {
     clearTimeout(saveTimer);
     if (!ed) return;
     collectPage();
-    saveData();
-    setSaveStatus('Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    const ok = saveData();
+    setSaveStatus(ok ? 'Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Não foi possível salvar');
+    if (!ok && !warnedFull) toast('O armazenamento do navegador está cheio. Remova imagens grandes ou libere espaço para continuar salvando.');
+    warnedFull = !ok;
   }
 
   // Agenda o salvamento 500 ms após a última digitação, agrupando teclas para não gravar a cada letra e avisando "Salvando..." (H1, performance).
@@ -1084,16 +1699,9 @@
     if (on) nav.scrollTop = on.offsetTop - nav.clientHeight / 2;
   }
 
-  // Carrega a página atual na folha: fundo, zonas, indicadores, abas e endereço, deixando a tela fiel aos dados e ao link compartilhável (H1, H4).
-  function loadPage(focus) {
-    const c = ed.c, p = c.paginas[ed.i];
-    const folha = p.folha || c.folha || 'pauta';
-    sheet.className = 'sheet f-' + folha;
-    $('#tb-folha').value = folha;
-    ZONES.notes.innerHTML = sanitize(p.html);
-    ZONES.cue.innerHTML = sanitize(p.cue);
-    ZONES.summary.innerHTML = sanitize(p.summary);
-    $('#sheet-crumb').textContent = ed.m.nome + ' / ' + c.titulo;
+  // Atualiza número, indicador, botões e abas conforme a página atual e o total, usado ao carregar páginas e depois do transbordo criar novas (H1 visibilidade).
+  function updatePageChrome() {
+    const c = ed.c;
     $('#sheet-num').textContent = 'Página ' + (ed.i + 1);
     $('#page-ind').textContent = 'Página ' + (ed.i + 1) + ' de ' + c.paginas.length;
     $('#pg-prev').disabled = ed.i === 0;
@@ -1101,10 +1709,28 @@
     $('#pg-del').disabled = c.paginas.length <= 1;
     $('#pg-del').title = c.paginas.length <= 1 ? 'Um caderno precisa ter pelo menos uma página' : 'Excluir página atual';
     renderTabs();
+  }
+
+  // Carrega a página atual na folha: fundo, zonas, objetos, recuo, indicadores e endereço, deixando a tela fiel aos dados e ao link compartilhável (H1, H4).
+  function loadPage(focus) {
+    const c = ed.c, p = c.paginas[ed.i];
+    p.postits = p.postits || [];
+    p.imagens = p.imagens || [];
+    const folha = p.folha || c.folha || 'pauta';
+    sheet.className = 'sheet f-' + folha;
+    $('#tb-folha').value = folha;
+    ZONES.notes.innerHTML = sanitize(p.html);
+    ZONES.cue.innerHTML = sanitize(p.cue);
+    ZONES.summary.innerHTML = sanitize(p.summary);
+    $('#sheet-crumb').textContent = ed.m.nome + ' / ' + c.titulo;
     history.replaceState(null, '', '#/caderno/' + c.id + '/' + (ed.i + 1));
     savedRange = null;
     activeZone = null;
     hold = false;
+    updatePageChrome();
+    fitSheet();
+    reflowAll(true);
+    renderObjects();
     if (focus) ZONES.notes.focus();
   }
 
@@ -1114,7 +1740,7 @@
     if (!found) return false;
     ed = { m: found.m, c: found.c, i: 0 };
     ed.c.paginas.forEach(p => { if (!p.id) p.id = uid(); });
-    ed.i = Math.min(Math.max(pageIdx || 0, 0), ed.c.paginas.length - 1);
+    ed.i = clamp(pageIdx || 0, 0, ed.c.paginas.length - 1);
     $('#ed-titulo').textContent = ed.c.titulo;
     $('#ed-materia').textContent = ed.m.nome;
     setSaveStatus('Salvo');
@@ -1134,7 +1760,7 @@
   function newPage() {
     if (!ed) return;
     flushSave();
-    ed.c.paginas.splice(ed.i + 1, 0, { id: uid(), texto: '', html: '', cue: '', summary: '', postits: [], folha: ed.c.folha || 'pauta' });
+    ed.c.paginas.splice(ed.i + 1, 0, blankPage(ed.c));
     ed.i += 1;
     saveData();
     loadPage(true);
@@ -1168,10 +1794,10 @@
   // Troca o fundo só da página atual e recusa a troca se o texto não couber no novo layout, explicando o motivo e mantendo o fundo anterior (H5, H9).
   $('#tb-folha').addEventListener('change', e => {
     if (!ed) return;
-    const p = ed.c.paginas[ed.i];
+    const p = curPage();
     const before = p.folha || ed.c.folha || 'pauta', next = e.target.value;
     sheet.className = 'sheet f-' + next;
-    const over = Object.values(ZONES).some(z => z.offsetParent !== null && z.scrollHeight > z.clientHeight + 1);
+    const over = Object.values(ZONES).some(z => z.offsetParent !== null && overflows(z));
     if (over) {
       sheet.className = 'sheet f-' + before;
       e.target.value = before;
@@ -1179,6 +1805,7 @@
       return;
     }
     p.folha = next;
+    reflowAll(true);
     saveData();
     const hidden = before === 'cornell' && next !== 'cornell' && (ZONES.cue.innerText.trim() || ZONES.summary.innerText.trim());
     toast('Fundo alterado para ' + FOLHAS[next] + '.' + (hidden ? ' Os tópicos e o resumo ficam guardados e voltam no Cornell.' : ''));
@@ -1212,6 +1839,10 @@
     if (view === 'auth' && session) { location.hash = '#/mochila'; return; }
 
     if (ed) { flushSave(); if (view !== 'editor') ed = null; }
+    $$('dialog[open]').forEach(d => d.close());
+    $$('[data-view]').forEach(el => { el.hidden = el.dataset.view !== view; });
+    const screen = $('[data-view]:not([hidden])');
+
     if (view === 'editor') {
       loadData();
       if (!openEditor(route.id, route.page)) {
@@ -1220,10 +1851,6 @@
         return;
       }
     }
-
-    $$('dialog[open]').forEach(d => d.close());
-    $$('[data-view]').forEach(el => { el.hidden = el.dataset.view !== view; });
-    const screen = $('[data-view]:not([hidden])');
     document.title = view === 'editor' ? ed.c.titulo + ' | Mochila Inteligente' : screen.dataset.title;
 
     if (view === 'auth') {

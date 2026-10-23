@@ -76,6 +76,7 @@ body { background: var(--bg); color: var(--ink); font-family: 'Montserrat', Aria
 /* Estiliza os campos com borda clara e foco em Beeswax para o usuário ver onde está digitando (H1 visibilidade). */
 .input { width: 100%; min-height: 2.9rem; padding: .75rem 1rem; border-radius: .9rem; border: 1.5px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; }
 .input:focus { outline: 2px solid var(--honey); border-color: var(--honey); }
+.input:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Pinta o campo inválido com a cor de erro para o problema ser localizado sem ler o texto (H9 diagnóstico de erros). */
 .input[aria-invalid="true"] { border-color: var(--accent); }
@@ -132,7 +133,7 @@ body { background: var(--bg); color: var(--ink); font-family: 'Montserrat', Aria
 .t-cornell::before { top: 0; bottom: 28%; left: 30%; border-left-width: 2px; }
 .t-cornell::after { left: 0; right: 0; bottom: 28%; border-top-width: 2px; }
 
-/* Cria o post-it com altura de 4 linhas e margem de 38px (cerca de 1 cm) para o texto contornar sem colar nele (H2 mundo real). */
+/* Cria o post-it de demonstração da landing com altura de 4 linhas e margem de 38px (cerca de 1 cm) para o texto contornar sem colar nele (H2 mundo real). */
 .postit { float: right; width: 150px; height: calc(var(--row) * 4); margin: 0 0 0 38px; padding: 0 14px; display: grid; place-items: center; text-align: left; font-size: 14px; line-height: 1.35; font-weight: 500; color: #3A2A1C; background: var(--honey); border-radius: 3px 3px 14px 3px; box-shadow: 3px 8px 14px -6px rgba(0, 0, 0, .4); transform: rotate(1.5deg); position: relative; }
 
 /* Desenha a fita adesiva sobre o topo do papel para reforçar a metáfora de colar notas (H2 mundo real). */
@@ -202,6 +203,7 @@ body { background: var(--bg); color: var(--ink); font-family: 'Montserrat', Aria
 .opt span.opt-box { display: flex; align-items: center; gap: .6rem; padding: .55rem .7rem; border: 1.5px solid var(--line); border-radius: .9rem; background: var(--paper); font-size: .82rem; font-weight: 600; }
 .opt input:checked + span.opt-box { border-color: var(--accent); background: var(--sage-soft); }
 .opt input:focus-visible + span.opt-box { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt input:disabled + span.opt-box { opacity: .45; cursor: not-allowed; }
 
 /* Cria uma miniatura de folha dentro de cada opção para o usuário reconhecer o tipo pelo desenho, sem ler o nome (H6 reconhecimento). */
 .mini { position: relative; flex: none; width: 2.2rem; height: 2.6rem; border: 1px solid var(--line); border-radius: .35rem; background-color: var(--paper); }
@@ -240,8 +242,12 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 /* Agrupa folha e abas laterais lado a lado, centralizados, para o conjunto parecer um caderno aberto sobre a mesa (H2 mundo real). */
 .stage { display: flex; justify-content: center; align-items: flex-start; }
 
-/* Desenha a folha com altura fixa de linhas inteiras, sem rolagem infinita, para a página ter limite físico como o papel (H2, requisito de paginação). */
-.sheet { --rows: 20; position: relative; flex: 1; min-width: 0; max-width: 780px; padding-bottom: var(--row); background: var(--paper); border: 1px solid var(--line); border-radius: 1rem 0 0 1rem; box-shadow: 0 24px 50px -28px rgba(58, 42, 28, .55); }
+/* Reserva a caixa que ocupa o tamanho da folha já reduzido pela escala, para o layout ao redor acompanhar a folha em telas pequenas (UX responsivo). */
+.sheet-fit { position: relative; flex: none; }
+.sheet-scale { width: 780px; transform-origin: top left; }
+
+/* Desenha a folha com 780px fixos e altura de linhas inteiras, sem rolagem infinita, para o texto quebrar igual em qualquer aparelho (H2, Baseline Lock). */
+.sheet { --rows: 20; position: relative; width: 780px; padding-bottom: var(--row); background: var(--paper); border: 1px solid var(--line); border-radius: 1rem 0 0 1rem; box-shadow: 0 24px 50px -28px rgba(58, 42, 28, .55); }
 
 /* Cria o cabeçalho de uma linha com o caminho do caderno e o número da página, orientando o usuário sobre onde está (H1 visibilidade). */
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: var(--row); padding: 0 1.1rem; font-size: .7rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
@@ -256,8 +262,8 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 /* Zera o line-height dos trechos inline para só o bloco pai definir a altura da linha, impedindo que fontes mistas empurrem a pauta (Baseline Lock). */
 .zone span, .zone font, .zone b, .zone strong, .zone i, .zone em, .zone u { line-height: 0; }
 
-/* Mostra uma dica dentro da zona vazia de notas para o usuário saber onde escrever, sumindo ao digitar (H6 reconhecimento, H10). */
-.zone-notes:empty::before { content: attr(data-ph); color: var(--muted); pointer-events: none; }
+/* Mostra uma dica dentro da zona de notas vazia, marcada pelo JavaScript com is-empty, sumindo ao digitar mesmo com espaçadores dentro (H6, H10). */
+.zone-notes.is-empty::before { content: attr(data-ph); color: var(--muted); pointer-events: none; }
 
 /* Posiciona as três zonas na grade e deixa tópicos e resumo escondidos fora do Cornell, mantendo uma só área de escrita nas outras folhas (H8). */
 .zone-notes { grid-column: 1; grid-row: 1; }
@@ -265,8 +271,8 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .zone-cue { grid-column: 1; grid-row: 1; }
 .zone-summary { grid-column: 1 / -1; grid-row: 2; }
 
-/* Desenha a pauta nas zonas com a linha em y=23px, logo abaixo da linha de base do texto de 18px, para as letras assentarem sobre a linha (Baseline Lock). */
-.f-pauta .zone, .f-cornell .zone { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, var(--line) 23px, var(--line) 24px, transparent 24px, transparent var(--row)); }
+/* Desenha a pauta nas zonas e no sumário com a linha em y=23px, logo abaixo da linha de base do texto de 18px, para as letras assentarem sobre a linha (Baseline Lock). */
+.f-pauta .zone, .f-cornell .zone, .toc-body { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, var(--line) 23px, var(--line) 24px, transparent 24px, transparent var(--row)); }
 
 /* Desenha o quadriculado com células de 32px e linhas horizontais em y=23px, alinhadas à pauta, para o texto também assentar nele (Baseline Lock). */
 .f-quadriculado .zone { background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 32px 32px; background-position: 0 23px; }
@@ -275,7 +281,7 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .f-pontilhado .zone { background-image: radial-gradient(var(--line) 1.4px, transparent 1.8px); background-size: 32px 32px; background-position: 0 7px; }
 
 /* Traça a margem vertical clássica só na folha pautada e afasta o texto dela, imitando o caderno escolar (H2 mundo real). */
-.f-pauta .sheet-body::before { content: ""; position: absolute; top: 0; bottom: 0; left: 44px; width: 2px; background: color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; z-index: 1; }
+.f-pauta .sheet-body::before, .toc-body::before { content: ""; position: absolute; top: 0; bottom: 0; left: 44px; width: 2px; background: color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; z-index: 1; }
 .f-pauta .zone-notes { padding-left: 64px; }
 
 /* Monta o método Cornell com coluna de tópicos de 30%, notas à direita e resumo nas 5 últimas linhas, tudo em múltiplos de 32px (H2 mundo real). */
@@ -298,6 +304,7 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .tb-sel { width: auto; min-height: 2.5rem; padding: .35rem .6rem; border-radius: .7rem; font-size: .85rem; font-weight: 600; }
 .tb-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-width: 2.5rem; min-height: 2.5rem; padding: 0 .6rem; border: 1.5px solid var(--line); border-radius: .7rem; background: var(--paper); font-size: .85rem; font-weight: 700; cursor: pointer; }
 .tb-btn:hover { border-color: var(--latte); }
+.tb-btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tb-btn[aria-pressed="true"] { background: var(--sage-soft); border-color: var(--accent); }
 
 /* Cria as bolinhas de cor do texto e do marca-texto, com borda dupla para aparecerem sobre qualquer fundo claro ou escuro (H1, H6). */
@@ -307,8 +314,111 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 
 /* Empilha as abas numeradas na lateral com rolagem própria, cada uma na cor derivada da capa, para acesso rápido a qualquer página (H7, H6). */
 .tabs { position: relative; display: flex; flex-direction: column; gap: 6px; width: 2.7rem; max-height: calc(var(--row) * 22); overflow-y: auto; padding: 1.25rem 0 .5rem; scrollbar-width: none; }
-.tab-page { position: relative; flex: none; width: 2.2rem; height: 2.6rem; margin-left: -2px; border-radius: 0 .8rem .8rem 0; background: var(--tab); font-size: .8rem; font-weight: 800; cursor: pointer; box-shadow: 2px 3px 6px -3px rgba(0, 0, 0, .4); transition: width .15s, transform .15s; }
+.tab-page { position: relative; flex: none; display: grid; place-items: center; width: 2.2rem; height: 2.6rem; margin-left: -2px; border-radius: 0 .8rem .8rem 0; background: var(--tab); font-size: .8rem; font-weight: 800; cursor: pointer; box-shadow: 2px 3px 6px -3px rgba(0, 0, 0, .4); transition: width .15s, transform .15s; }
 .tab-page:hover { width: 2.5rem; }
 
 /* Destaca a aba da página atual alargando e contornando, para o usuário ver sempre em qual página está (H1 visibilidade). */
 .tab-page.on { width: 2.65rem; box-shadow: inset 0 0 0 2.5px var(--ink), 2px 3px 6px -3px rgba(0, 0, 0, .4); }
+
+/* ===================== ETAPA 4: MOTOR ANTICOLISÃO ===================== */
+
+/* Cria o espaçador flutuante que reserva a área do objeto mais 1 cm, empurrando o texto das linhas afetadas sem tocar no conteúdo digitado (requisito de recuo de 1 cm). */
+.flow { margin: 0; padding: 0; border: 0; pointer-events: none; user-select: none; }
+
+/* Cria a camada transparente sobre a área de escrita que guarda post-its e imagens, sem bloquear cliques no texto abaixo (H5 prevenção de erros). */
+.obj-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+
+/* Posiciona cada objeto de forma absoluta dentro da camada e devolve os cliques só a ele, para arrastar e editar sem atrapalhar o texto (H3, H7). */
+.obj { position: absolute; pointer-events: auto; outline: none; }
+.obj.sel { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.obj:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Eleva o objeto durante o arrasto, com cursor de mão fechada, para mostrar que ele está solto na mão do usuário (H1 visibilidade). */
+.obj.dragging { z-index: 8; cursor: grabbing; transition: none; filter: drop-shadow(0 14px 14px rgba(0, 0, 0, .35)); }
+
+/* Mostra a faixa de linhas que o objeto vai ocupar ao soltar, com tracejado e fundo translúcido, antecipando o encaixe magnético (H1 visibilidade, snap-to-line). */
+.snap-guide { position: absolute; left: 0; right: 0; pointer-events: none; border-top: 2px dashed var(--accent); border-bottom: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* Desenha o post-it com cor própria, cantos como papel colado e sombra, em coluna com faixa de arraste e área de texto (H2 mundo real). */
+.pit { display: flex; flex-direction: column; border-radius: 3px 3px 14px 3px; box-shadow: 3px 8px 14px -6px rgba(0, 0, 0, .4); color: #3A2A1C; }
+
+/* Cria a faixa de arraste do post-it com pontinhos, separada do texto por um tracejado, para mover sem editar sem querer (H6 reconhecimento). */
+.pit-grip { flex: none; height: 22px; display: grid; place-items: center; cursor: grab; touch-action: none; border-bottom: 1px dashed rgba(58, 42, 28, .25); }
+.grip-dots { width: 34px; height: 6px; background-image: radial-gradient(rgba(58, 42, 28, .55) 1.4px, transparent 1.6px); background-size: 8px 6px; }
+
+/* Define o texto do post-it com altura limitada e tamanho ajustado pelo JavaScript, para a escrita nunca vazar do quadrado (requisito de auto-resize). */
+.pit-text { flex: 1; min-height: 0; overflow: hidden; padding: 6px 10px; font-family: 'Montserrat', Arial, sans-serif; font-size: 18px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.pit-text:empty::before { content: attr(data-ph); opacity: .55; }
+
+/* Estiliza a imagem colada com bordas suaves e sombra, sem seleção nem arrasto nativo, para o arrasto do app funcionar sempre (H5). */
+.img-obj img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 4px; box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .5); cursor: grab; touch-action: none; user-select: none; -webkit-user-drag: none; }
+
+/* Desenha a fita adesiva decorativa no topo da imagem ou do post-it, levemente girada, para reforçar o visual de papel colado (H2 mundo real). */
+.obj-tape { position: absolute; top: -12px; left: 50%; width: 72px; height: 24px; transform: translateX(-50%) rotate(-3deg); opacity: .9; pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+
+/* Cria a barra de ações do objeto selecionado, abaixo dele, com cores, tamanho e remover, para tudo ficar à mão sem menus escondidos (H6, H7). */
+.obj-bar { position: absolute; left: 0; top: calc(100% + 10px); display: none; align-items: center; gap: .3rem; padding: .3rem; border: 1.5px solid var(--line); border-radius: .9rem; background: var(--surface); box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); white-space: nowrap; z-index: 9; }
+.obj.sel .obj-bar { display: flex; }
+.obj-bar.bar-right { left: auto; right: 0; }
+.obj-btn { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .6rem; color: var(--ink); cursor: pointer; }
+.obj-btn:hover { background: var(--sage-soft); }
+.obj-btn[aria-pressed="true"] { background: var(--sage-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+/* Esconde uma cópia invisível da folha fora da tela, usada só para medir quanto texto cabe nas próximas páginas ao transbordar (requisito de overflow). */
+.sheet.ghost { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; transform: none; }
+
+/* ===================== ETAPA 5: SUMÁRIO E PDF ===================== */
+
+/* Destaca a linha marcada como título de seção com negrito, cor de destaque e uma barra lateral interna, sem mudar a altura da linha, para o título ser reconhecido e a pauta não se mover (H1, Baseline Lock). */
+.zone .sec-title { font-weight: 800; color: var(--accent-strong); padding-left: 12px; box-shadow: inset 4px 0 0 var(--accent); }
+.dark .zone .sec-title { color: var(--honey); }
+
+/* Anima um brilho de fundo na linha do título aberto pelo sumário, para o usuário ver onde o link o levou (H1 visibilidade). */
+@keyframes secflash { 0%, 100% { background-color: transparent; } 30% { background-color: color-mix(in srgb, var(--honey) 60%, transparent); } }
+.zone .sec-flash { animation: secflash 1.8s ease-out; }
+
+/* Desenha a folha do sumário com a mesma pauta de 32px, cabeçalho e corpo de 20 linhas, para o sumário parecer a página de Contents de um caderno de verdade (H2 mundo real). */
+.toc-body { position: relative; height: calc(var(--row) * var(--rows)); padding: 0 28px 0 64px; overflow: hidden; color: var(--ink); }
+.toc-heading { height: calc(var(--row) * 2); margin: 0; font-size: 24px; font-weight: 800; line-height: var(--row); }
+
+/* Limita a lista a 18 linhas com rolagem própria, para cadernos com muitos títulos continuarem navegáveis sem quebrar a folha (H5). */
+.toc-list { max-height: calc(var(--row) * 18); overflow-y: auto; scrollbar-width: thin; }
+
+/* Cria cada linha do sumário como link de uma linha da pauta, com título, pontilhado e número da página, igual aos índices impressos (H2, H6). */
+.toc-row { display: flex; align-items: baseline; gap: .5rem; height: var(--row); line-height: var(--row); font-size: 16px; font-weight: 600; color: inherit; text-decoration: none; }
+.toc-row:hover .toc-title, .toc-row:focus-visible .toc-title { color: var(--accent); text-decoration: underline; }
+.toc-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%; }
+.toc-dots { flex: 1; min-width: 1rem; align-self: center; border-bottom: 2px dotted var(--line); transform: translateY(6px); }
+.toc-num { min-width: 1.6rem; text-align: right; font-weight: 800; }
+
+/* Mostra uma explicação no sumário vazio de como criar títulos de seção, em vez de uma página em branco (H6, H10). */
+.toc-empty { padding-right: 1rem; font-size: 15px; line-height: var(--row); color: var(--muted); }
+
+/* Guarda as cores do tema claro numa classe própria, aplicada ao conteúdo do PDF, para a exportação sair sempre clara, mesmo com o site no modo escuro (requisito de padronização de impressão). */
+.print-light { --bg: #F4EBDA; --surface: #FBF5E8; --paper: #FFFFFF; --ink: #3A2A1C; --muted: #6B5742; --line: #CFC3AE; --sage-soft: #DDE8DB; color-scheme: light; }
+
+/* Mantém o conteúdo do PDF fora da tela mas com layout calculado, para medir recuos e fontes dos post-its antes de imprimir (requisito de fidelidade). */
+#print-root { position: fixed; left: -10000px; top: 0; visibility: hidden; }
+
+/* Define cada página do PDF com tamanho de papel A4 em milímetros, paisagem ou retrato, e quebra de página depois dela, para cada folha do caderno ocupar uma página (requisito de PDF). */
+#print-root .pdf-page { position: relative; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
+#print-root.pdf-land .pdf-page { width: 297mm; height: 209.5mm; }
+#print-root.pdf-port .pdf-page { width: 210mm; height: 296.5mm; }
+#print-root .pdf-page:last-child { break-after: auto; page-break-after: auto; }
+
+/* Centraliza a folha na página do PDF e a escala por uma variável calculada no JavaScript, mantendo texto vetorial e posições exatas de objetos (requisito de fidelidade). */
+#print-root .sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--k, 1)); transform-origin: center; box-shadow: none; border-radius: 0; }
+
+/* Força a impressão das cores de fundo, como marca-texto, post-its e pauta, que os navegadores costumam apagar por padrão (requisito de preservar marca-texto). */
+#print-root, #print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* Remove as linhas de fundo quando o usuário desmarca "Exportar com linhas", deixando só o conteúdo, como uma folha sulfite limpa (requisito de visibilidade da pauta). */
+#print-root.no-lines .zone, #print-root.no-lines .toc-body { background-image: none; }
+#print-root.no-lines .f-pauta .sheet-body::before, #print-root.no-lines .toc-body::before { display: none; }
+
+/* Mostra só o conteúdo do PDF ao imprimir, escondendo toda a interface, e deixa o papel branco e sem margens (requisito de impressão limpa). */
+@media print {
+  html.is-printing, html.is-printing body { background: #fff !important; margin: 0; padding: 0; }
+  html.is-printing body > *:not(#print-root) { display: none !important; }
+  html.is-printing #print-root { position: static; left: auto; visibility: visible; }
+}
