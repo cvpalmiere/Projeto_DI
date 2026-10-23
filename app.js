@@ -190,7 +190,18 @@
       return !dup || 'Já existe um caderno com esse título nessa matéria. Use outro título.';
     },
     escolha: v => v !== '' || 'Escolha uma matéria para guardar o caderno.',
-    hex: v => parseHex(v) !== null || 'Digite a cor com 6 dígitos hexadecimais, como #D95122.'
+    hex: v => parseHex(v) !== null || 'Digite a cor com 6 dígitos hexadecimais, como #D95122.',
+    pdfDe: (v, form) => {
+      if (form.elements.escopo.value !== 'intervalo') return true;
+      const n = ed ? ed.c.paginas.length : 1, x = Number(v);
+      return (Number.isInteger(x) && x >= 1 && x <= n) || 'Digite a página inicial, um número de 1 a ' + n + '.';
+    },
+    pdfAte: (v, form) => {
+      if (form.elements.escopo.value !== 'intervalo') return true;
+      const n = ed ? ed.c.paginas.length : 1, x = Number(v), de = Number(form.elements.de.value);
+      if (!(Number.isInteger(x) && x >= 1 && x <= n)) return 'Digite a página final, um número de 1 a ' + n + '.';
+      return !(Number.isInteger(de) && x < de) || 'A página final não pode vir antes da inicial (' + de + ').';
+    }
   };
 
   // Escreve ou limpa a mensagem de erro de um campo e marca aria-invalid para o problema ficar visível na borda e audível no leitor de tela (H9).
@@ -830,13 +841,15 @@
   ];
   const TAPES = ['', '#EAB05C', '#B6CFB9', '#D95122'];
 
-  // Reúne as três zonas editáveis, a folha, a área de escrita, a camada de objetos e o estado do editor, usados por todas as funções abaixo.
+  // Reúne as três zonas editáveis, a folha, o sumário, a camada de objetos e o estado do editor, usados por todas as funções abaixo.
   const ZONES = { cue: $('#z-cue'), notes: $('#z-notes'), summary: $('#z-summary') };
   const sheet = $('#sheet');
+  const tocSheet = $('#toc-sheet');
   const bodyEl = $('.sheet-body', sheet);
   const layer = $('#obj-layer');
   const guide = $('#snap-guide');
   const fit = $('#sheet-fit');
+  const scaleEl = $('#sheet-scale');
   let ed = null;
   let activeZone = null;
   let savedRange = null;
@@ -848,11 +861,27 @@
   let selId = null;
   let flowRaf = 0;
   let warnedFull = false;
+  let pendingSec = null;
+
+  // Cria um molde limpo da folha, sem ids, guia nem edição, usado para as cópias invisíveis de medição e para as páginas do PDF (requisito de fidelidade).
+  function makeShell() {
+    const s = sheet.cloneNode(true);
+    s.removeAttribute('id');
+    $$('[id]', s).forEach(n => n.removeAttribute('id'));
+    $$('.snap-guide', s).forEach(n => n.remove());
+    $$('.zone', s).forEach(z => { z.removeAttribute('contenteditable'); z.removeAttribute('role'); });
+    return s;
+  }
+  const shellTpl = makeShell();
+
+  // Cria o molde limpo da folha de sumário, usado nas páginas de Contents do PDF, para ficarem idênticas à tela (requisito do sumário no PDF).
+  const tocTpl = tocSheet.cloneNode(true);
+  tocTpl.removeAttribute('id');
+  tocTpl.removeAttribute('hidden');
+  $$('[id]', tocTpl).forEach(n => n.removeAttribute('id'));
 
   // Cria uma cópia invisível da folha, fora da tela, para medir quanto texto cabe nas páginas seguintes sem mexer na página que o usuário vê (requisito do transbordo).
-  const ghost = sheet.cloneNode(true);
-  ghost.removeAttribute('id');
-  $$('[id]', ghost).forEach(n => n.removeAttribute('id'));
+  const ghost = shellTpl.cloneNode(true);
   $$('.obj-layer', ghost).forEach(n => n.remove());
   ghost.classList.add('ghost');
   ghost.setAttribute('aria-hidden', 'true');
@@ -887,7 +916,7 @@
 
   // Lembra a última seleção feita dentro da folha para os controles da barra, que roubam o foco, aplicarem a formatação no lugar certo (H3, H7).
   document.addEventListener('selectionchange', () => {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     const sel = getSelection();
     if (!sel.rangeCount) return;
     const z = zoneOf(sel.anchorNode);
@@ -907,13 +936,33 @@
   // Explica o que fazer quando uma ferramenta é usada sem um lugar escolhido para escrever, em vez de falhar em silêncio (H9 recuperação de erros).
   const noSelection = () => toast('Clique na página onde quer escrever e depois escolha a formatação.');
 
-  // Encontra o bloco (linha) onde está o cursor, filho direto da zona, para aplicar checklist ou outros estilos de linha inteira.
+  // Encontra o bloco (linha) onde está o cursor, filho direto da zona, para aplicar checklist, título de seção ou outros estilos de linha inteira.
   function currentBlock(zone = activeZone) {
     const sel = getSelection();
     if (!sel.rangeCount || !zone) return null;
     let n = sel.anchorNode;
     while (n && n.parentNode !== zone) n = n.parentNode;
     return n && n.nodeType === 1 && !n.classList.contains('flow') ? n : null;
+  }
+
+  // Garante que o cursor esteja dentro de um bloco de linha, criando um se a zona estiver vazia ou tiver texto solto, para estilos de linha sempre terem onde se aplicar (H5).
+  function ensureBlock() {
+    let block = currentBlock();
+    if (block) return block;
+    const hasContent = [...activeZone.childNodes].some(n => !(n.nodeType === 1 && n.classList.contains('flow')));
+    if (!hasContent) {
+      const d = h('div', {}, h('br'));
+      activeZone.append(d);
+      const r = document.createRange();
+      r.setStart(d, 0);
+      r.collapse(true);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    } else {
+      document.execCommand('formatBlock', false, 'div');
+    }
+    return currentBlock();
   }
 
   // Posiciona o cursor logo antes de um nó e devolve o foco à área de notas, usado para o cursor acompanhar o texto que passou para outra página (H1, H7).
@@ -932,10 +981,11 @@
     zone.classList.toggle('is-empty', zone === ZONES.notes && !zone.textContent.trim() && !zone.querySelector('.chk-line'));
   }
 
-  // Serializa a zona sem os espaçadores de recuo nem o marcador de cursor, para o que é salvo ser só o conteúdo do usuário (H5, requisito de persistência).
+  // Serializa a zona sem os espaçadores de recuo, o marcador de cursor nem o brilho de destaque, para o que é salvo ser só o conteúdo do usuário (H5, requisito de persistência).
   function serializeZone(zone, keepMarker) {
     const c = zone.cloneNode(true);
     $$('.flow', c).forEach(n => n.remove());
+    $$('.sec-flash', c).forEach(n => n.classList.remove('sec-flash'));
     if (!keepMarker) $$('[data-caret]', c).forEach(n => n.remove());
     return c.innerHTML;
   }
@@ -1019,7 +1069,7 @@
 
   // Recalcula o recuo da página aberta a partir dos objetos dela e atualiza a dica de zona vazia, mantendo texto e objetos sempre separados (requisito de colisão).
   function reflowAll(force) {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     applyFlow(ZONES, objectsOf(curPage()), force);
     Object.values(ZONES).forEach(markEmpty);
   }
@@ -1062,7 +1112,7 @@
     return { node: last, offset: /\S+\s*$/.exec(last.data).index };
   }
 
-  // Tira do fim da zona os blocos e palavras que passam da última linha e devolve em HTML, preservando negrito, cores e checklist, para irem à página seguinte (requisito de overflow).
+  // Tira do fim da zona os blocos e palavras que passam da última linha e devolve em HTML, preservando negrito, cores, títulos e checklist, para irem à página seguinte (requisito de overflow).
   function spillZone(zone) {
     if (!overflows(zone)) return '';
     wrapStrays(zone);
@@ -1074,7 +1124,7 @@
       if (!last) break;
       if (last.offsetTop - zone.offsetTop >= zone.clientHeight || !lastWordPos(last)) { tail.prepend(last); continue; }
       const part = last.cloneNode(false);
-      part.classList.remove('chk-line');
+      part.classList.remove('chk-line', 'sec-title');
       part.removeAttribute('data-done');
       while (overflows(zone)) {
         const pos = lastWordPos(last);
@@ -1116,7 +1166,7 @@
   // Resolve o transbordo da área de notas: move o excedente para o topo da próxima página, cria páginas se preciso, repete em cascata e leva o cursor junto (requisito de overflow engine).
   function resolveOverflow() {
     const notes = ZONES.notes;
-    if (!ed || spilling || notes.offsetParent === null || !overflows(notes)) return false;
+    if (!ed || ed.toc || spilling || notes.offsetParent === null || !overflows(notes)) return false;
     spilling = true;
     try {
       const marker = dropMarker();
@@ -1149,6 +1199,7 @@
         updatePageChrome();
         toast('Parte do texto passou do fim da página e foi para a página ' + (ed.i + 2) + '.');
       }
+      updateTocBadge();
       setSaveStatus('Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     } finally {
       spilling = false;
@@ -1224,15 +1275,17 @@
     afterEdit();
   }
 
-  // Reflete na barra a fonte, o tamanho e o negrito do trecho sob o cursor, para o usuário ver o estado atual sem adivinhar (H1 visibilidade).
+  // Reflete na barra a fonte, o tamanho, o negrito e o título de seção do trecho sob o cursor, para o usuário ver o estado atual sem adivinhar (H1 visibilidade).
   function updateToolbarState() {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     const sel = getSelection();
     if (!sel.rangeCount) return;
     const node = sel.anchorNode;
     const el = node && (node.nodeType === 3 ? node.parentElement : node);
     if (!el || !zoneOf(el)) return;
     $('#tb-negrito').setAttribute('aria-pressed', String(document.queryCommandState('bold')));
+    const blk = currentBlock(zoneOf(el));
+    $('#tb-secao').setAttribute('aria-pressed', String(Boolean(blk && blk.classList.contains('sec-title'))));
     if (hold) return;
     const cs = getComputedStyle(el);
     const fam = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
@@ -1250,6 +1303,7 @@
   $('#tb-cor-livre').addEventListener('change', e => exec('foreColor', e.target.value));
   $$('[data-hl]').forEach(b => b.addEventListener('click', () => exec('hiliteColor', b.dataset.hl)));
   $('#tb-checklist').addEventListener('click', toggleChecklist);
+  $('#tb-secao').addEventListener('click', toggleSection);
   $('#tb-postit').addEventListener('click', addPostit);
   $('#tb-imagem').addEventListener('change', async e => {
     const f = e.target.files[0];
@@ -1260,27 +1314,26 @@
   // Transforma a linha do cursor em item de checklist ou volta ao normal, usando só uma classe para o marcador ficar alinhado à pauta (H3, H5).
   function toggleChecklist() {
     if (!restoreSelection()) { noSelection(); return; }
-    let block = currentBlock();
-    if (!block) {
-      const hasContent = [...activeZone.childNodes].some(n => !(n.nodeType === 1 && n.classList.contains('flow')));
-      if (!hasContent) {
-        const d = h('div', {}, h('br'));
-        activeZone.append(d);
-        const r = document.createRange();
-        r.setStart(d, 0);
-        r.collapse(true);
-        const s = getSelection();
-        s.removeAllRanges();
-        s.addRange(r);
-      } else {
-        document.execCommand('formatBlock', false, 'div');
-      }
-      block = currentBlock();
-    }
+    const block = ensureBlock();
     if (!block) return;
     const on = block.classList.toggle('chk-line');
-    if (!on) block.removeAttribute('data-done');
+    if (on) block.classList.remove('sec-title');
+    else block.removeAttribute('data-done');
     afterEdit();
+  }
+
+  // Marca ou desmarca a linha como título de seção, que entra sozinho no sumário clicável, e explica o resultado, inclusive quando a linha ainda está vazia (H1, H9, requisito do sumário).
+  function toggleSection() {
+    if (!restoreSelection()) { noSelection(); return; }
+    const block = ensureBlock();
+    if (!block) return;
+    const on = block.classList.toggle('sec-title');
+    if (on) { block.classList.remove('chk-line'); block.removeAttribute('data-done'); }
+    afterEdit();
+    $('#tb-secao').setAttribute('aria-pressed', String(on));
+    toast(on
+      ? (block.textContent.trim() ? 'Linha marcada como título de seção. Ela já aparece no sumário.' : 'Escreva o título nesta linha. Ele aparece no sumário assim que tiver texto.')
+      : 'A linha voltou a ser texto comum e saiu do sumário.');
   }
 
   // Marca ou desmarca o item de checklist como concluído, trocando um atributo que o CSS usa para riscar e preencher o círculo (H1 visibilidade).
@@ -1323,28 +1376,33 @@
       if (t.classList && t.classList.contains('chk-line') && e.offsetX <= 28) toggleDone(t);
     });
 
-    // Trata Enter na checklist: continua a lista, sai dela em linha vazia e Ctrl+Enter conclui o item, no ritmo de quem digita (H7 eficiência).
+    // Trata Enter em checklist e título: continua a lista, sai dela em linha vazia, conclui com Ctrl+Enter e não herda a marca de título na linha nova, no ritmo de quem digita (H7 eficiência).
     zone.addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
       activeZone = zone;
       const block = currentBlock(zone);
-      if (!block || !block.classList.contains('chk-line')) return;
-      if (e.ctrlKey || e.metaKey) { e.preventDefault(); toggleDone(block); return; }
-      if (!block.textContent.trim()) {
+      if (!block) return;
+      const isChk = block.classList.contains('chk-line'), isSec = block.classList.contains('sec-title');
+      if (!isChk && !isSec) return;
+      if (isChk && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toggleDone(block); return; }
+      if (isChk && !block.textContent.trim()) {
         e.preventDefault();
         block.classList.remove('chk-line');
         block.removeAttribute('data-done');
         scheduleSave();
         return;
       }
-      setTimeout(() => { const nb = currentBlock(zone); if (nb && nb !== block) nb.removeAttribute('data-done'); }, 0);
+      setTimeout(() => {
+        const nb = currentBlock(zone);
+        if (nb && nb !== block) { nb.removeAttribute('data-done'); if (isSec) nb.classList.remove('sec-title'); }
+      }, 0);
     });
   });
 
   // ---------- Objetos: post-its e imagens com snap-to-line ----------
 
-  // Calcula o tamanho útil da área de escrita, usado para limitar posições e tamanhos dos objetos dentro da folha (H5 prevenção de erros).
-  const dims = () => ({ W: bodyEl.clientWidth, H: bodyEl.clientHeight });
+  // Calcula o tamanho útil da área de escrita, com valores de reserva quando a folha está escondida, para limitar posições e tamanhos sem quebrar no sumário (H5 prevenção de erros).
+  const dims = () => ({ W: bodyEl.clientWidth || 778, H: bodyEl.clientHeight || ROW * 20 });
 
   // Devolve a página aberta e a lista dos seus objetos, para as demais funções não repetirem a mesma consulta (legibilidade).
   const curPage = () => ed.c.paginas[ed.i];
@@ -1572,14 +1630,14 @@
       label: 'Desfazer',
       onClick: () => {
         arr.splice(i, 0, o);
-        if (ed && curPage() === p) { renderObjects(); settleObjects(); } else saveData();
+        if (ed && !ed.toc && curPage() === p) { renderObjects(); settleObjects(); } else saveData();
       }
     });
   }
 
   // Cola um post-it novo na lateral direita, na primeira linha livre, com cor da paleta e foco no texto, pronto para escrever (H7, requisito de post-it).
   function addPostit() {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     const p = curPage(), rows = 4, w = 110 + rows * 10, { W } = dims();
     const o = { id: uid(), tipo: 'postit', x: W - w - 24, y: 0, w, h: rows * ROW, cor: POSTIT_COLORS[p.postits.length % POSTIT_COLORS.length].hex, texto: '' };
     o.y = freeY(p, o);
@@ -1607,7 +1665,7 @@
 
   // Cola a imagem na página com altura em linhas inteiras, no ponto solto ou na primeira linha livre, para o encaixe valer desde o primeiro instante (requisito de upload e snap).
   async function addImageFile(file, at) {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     try {
       const { src, ratio } = await readImage(file);
       const p = curPage(), { W, H } = dims();
@@ -1641,25 +1699,98 @@
     addImageFile(f, { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale });
   });
 
-  // Ajusta a escala da folha de 780px para caber na largura da tela e reserva o espaço já reduzido, mantendo o texto quebrando igual em qualquer aparelho (UX responsivo, Baseline Lock).
+  // Ajusta a escala da folha ou do sumário de 780px para caber na largura da tela e reserva o espaço já reduzido, mantendo o texto quebrando igual em qualquer aparelho (UX responsivo, Baseline Lock).
   function fitSheet() {
     const avail = document.documentElement.clientWidth - 40 - 48;
     scale = Math.min(1, Math.max(0.3, avail / 780));
-    sheet.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
+    scaleEl.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
     fit.style.width = Math.round(780 * scale) + 'px';
-    fit.style.height = Math.round(sheet.offsetHeight * scale) + 'px';
+    const visible = ed && ed.toc ? tocSheet : sheet;
+    fit.style.height = Math.round(visible.offsetHeight * scale) + 'px';
   }
   window.addEventListener('resize', () => { if (ed) fitSheet(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (ed) { reflowAll(true); fitSheet(); } });
+
+  // ---------- Sumário dinâmico ----------
+
+  // Lê o HTML salvo de todas as páginas e lista os títulos de seção com texto, na ordem do caderno, incluindo as zonas do Cornell só nas páginas Cornell, para o sumário nunca mostrar algo escondido (requisito do sumário automático).
+  function tocEntries() {
+    const out = [];
+    ed.c.paginas.forEach((p, i) => {
+      const cornell = (p.folha || ed.c.folha || 'pauta') === 'cornell';
+      let ord = 0;
+      [cornell ? p.cue : '', p.html, cornell ? p.summary : ''].forEach(html => {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html || '';
+        tpl.content.querySelectorAll('.sec-title').forEach(b => {
+          const txt = b.textContent.replace(/\s+/g, ' ').trim();
+          if (txt) out.push({ titulo: txt, pagina: i + 1, ord: ord++ });
+        });
+      });
+    });
+    return out;
+  }
+
+  // Desenha as linhas do sumário como links com título, pontilhado e número da página, ou uma explicação quando está vazio, servindo tanto à tela quanto ao PDF (H6, H10, requisito de link clicável).
+  function fillToc(box, entries, hrefOf, onPick) {
+    if (!entries.length) {
+      box.replaceChildren(h('p', { class: 'toc-empty' }, 'Ainda não há títulos de seção. Marque uma linha com o botão Título de seção e ela aparece aqui, com link para a página.'));
+      return;
+    }
+    box.replaceChildren(...entries.map(e => h('a', { class: 'toc-row', href: hrefOf(e), title: 'Ir para a página ' + e.pagina, onclick: () => { if (onPick) onPick(e); } },
+      h('span', { class: 'toc-title' }, e.titulo),
+      h('span', { class: 'toc-dots', 'aria-hidden': 'true' }),
+      h('span', { class: 'toc-num' }, String(e.pagina)))));
+  }
+
+  // Atualiza o texto da aba do sumário com a quantidade de títulos, para o usuário ver que marcar uma linha já alimentou o índice sem abri-lo (H1 visibilidade).
+  function updateTocBadge() {
+    const tab = $('#tab-toc');
+    if (!tab || !ed) return;
+    const n = tocEntries().length;
+    const label = n ? 'Sumário, ' + plural(n, 'título de seção', 'títulos de seção') : 'Sumário, ainda sem títulos de seção';
+    tab.title = label;
+    tab.setAttribute('aria-label', label);
+  }
+
+  // Lista os blocos de título de seção visíveis na folha, na mesma ordem do sumário, para localizar o título que o link do sumário abriu (requisito de link direto).
+  const secBlocks = () => Object.values(ZONES).filter(z => z.offsetParent !== null).flatMap(z => $$('.sec-title', z)).filter(b => b.textContent.trim());
+
+  // Faz o título aberto pelo sumário brilhar por instantes, para o usuário ver exatamente onde o link o levou (H1 visibilidade).
+  function flashSection(ord) {
+    const b = secBlocks()[ord];
+    if (!b) return;
+    b.classList.remove('sec-flash');
+    void b.offsetWidth;
+    b.classList.add('sec-flash');
+    setTimeout(() => b.classList.remove('sec-flash'), 1900);
+  }
+
+  // Mostra a página de Contents no início do caderno, salvando antes o que está aberto e montando a lista com links para as páginas, sem criar uma página de verdade que atrapalhe a numeração (requisito do sumário).
+  function showToc() {
+    if (!ed) return;
+    flushSave();
+    ed.toc = true;
+    selectObj(null);
+    sheet.hidden = true;
+    tocSheet.hidden = false;
+    $('#toolbar-wrap').hidden = true;
+    $('.toc-crumb', tocSheet).textContent = ed.m.nome + ' / ' + ed.c.titulo;
+    fillToc($('#toc-list'), tocEntries(), e => '#/caderno/' + ed.c.id + '/' + e.pagina, e => { pendingSec = { i: e.pagina - 1, ord: e.ord }; });
+    history.replaceState(null, '', '#/caderno/' + ed.c.id + '/sumario');
+    document.title = 'Sumário | ' + ed.c.titulo;
+    updatePageChrome();
+    fitSheet();
+  }
 
   // ---------- Miolo do caderno: páginas, abas e salvamento ----------
 
   // Mostra o estado do salvamento em texto curto, para o usuário saber se o que digitou já está guardado (H1 visibilidade do status).
   const setSaveStatus = text => { $('#save-status-text').textContent = text; };
 
-  // Copia o conteúdo das zonas para os dados da página, guardando HTML para reabrir igual e texto puro para a busca global achar (requisito da busca).
+  // Copia o conteúdo das zonas para os dados da página, guardando HTML para reabrir igual e texto puro para a busca global achar, exceto no sumário, onde nada é editado (requisito da busca).
   function collectPage() {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     const p = curPage();
     p.html = serializeZone(ZONES.notes);
     p.cue = serializeZone(ZONES.cue);
@@ -1667,7 +1798,7 @@
     p.texto = [ZONES.cue, ZONES.notes, ZONES.summary].map(z => z.innerText.trim()).filter(Boolean).join('\n');
   }
 
-  // Grava o caderno e confirma com a hora, ou avisa claramente se o navegador recusou por falta de espaço, para nada se perder em silêncio (H1, H5, H9).
+  // Grava o caderno, atualiza o sumário e confirma com a hora, ou avisa claramente se o navegador recusou por falta de espaço, para nada se perder em silêncio (H1, H5, H9).
   function flushSave() {
     clearTimeout(saveTimer);
     if (!ed) return;
@@ -1676,6 +1807,7 @@
     setSaveStatus(ok ? 'Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Não foi possível salvar');
     if (!ok && !warnedFull) toast('O armazenamento do navegador está cheio. Remova imagens grandes ou libere espaço para continuar salvando.');
     warnedFull = !ok;
+    updateTocBadge();
   }
 
   // Agenda o salvamento 500 ms após a última digitação, agrupando teclas para não gravar a cada letra e avisando "Salvando..." (H1, performance).
@@ -1687,35 +1819,43 @@
   window.addEventListener('beforeunload', flushSave);
   window.addEventListener('pagehide', flushSave);
 
-  // Desenha as abas numeradas na lateral, cada uma num tom derivado da cor da capa, e destaca a da página atual para acesso rápido (H1, H7, H6).
+  // Desenha a aba do sumário no topo e as abas numeradas das páginas, cada uma num tom derivado da cor da capa, destacando a atual, para acesso rápido a qualquer ponto do caderno (H1, H7, H6).
   function renderTabs() {
     const nav = $('#tabs');
     const shades = [0, 0.3, 0.5, 0.15, 0.4, 0.6];
-    nav.replaceChildren(...ed.c.paginas.map((p, i) => {
+    const tocTab = h('button', { type: 'button', id: 'tab-toc', class: 'tab-page' + (ed.toc ? ' on' : ''), style: '--tab:#896645;color:#FFFFFF', 'aria-current': ed.toc ? 'page' : false, onclick: showToc }, icon('list'));
+    nav.replaceChildren(tocTab, ...ed.c.paginas.map((p, i) => {
       const hex = mixHex(ed.c.cor, '#FFFFFF', shades[i % shades.length]);
-      return h('button', { type: 'button', class: 'tab-page' + (i === ed.i ? ' on' : ''), style: '--tab:' + hex + ';color:' + inkFor(hex), 'aria-label': 'Ir para a página ' + (i + 1), 'aria-current': i === ed.i ? 'page' : false, title: 'Página ' + (i + 1), onclick: () => goPage(i) }, String(i + 1));
+      const on = !ed.toc && i === ed.i;
+      return h('button', { type: 'button', class: 'tab-page' + (on ? ' on' : ''), style: '--tab:' + hex + ';color:' + inkFor(hex), 'aria-label': 'Ir para a página ' + (i + 1), 'aria-current': on ? 'page' : false, title: 'Página ' + (i + 1), onclick: () => goPage(i) }, String(i + 1));
     }));
-    const on = $('.on', nav);
-    if (on) nav.scrollTop = on.offsetTop - nav.clientHeight / 2;
+    updateTocBadge();
+    const cur = $('.on', nav);
+    if (cur) nav.scrollTop = cur.offsetTop - nav.clientHeight / 2;
   }
 
-  // Atualiza número, indicador, botões e abas conforme a página atual e o total, usado ao carregar páginas e depois do transbordo criar novas (H1 visibilidade).
+  // Atualiza número, indicador, botões e abas conforme a página atual, o total e o modo sumário, mantendo os controles coerentes com o que está na tela (H1 visibilidade).
   function updatePageChrome() {
     const c = ed.c;
     $('#sheet-num').textContent = 'Página ' + (ed.i + 1);
-    $('#page-ind').textContent = 'Página ' + (ed.i + 1) + ' de ' + c.paginas.length;
-    $('#pg-prev').disabled = ed.i === 0;
-    $('#pg-next').disabled = ed.i === c.paginas.length - 1;
-    $('#pg-del').disabled = c.paginas.length <= 1;
+    $('#page-ind').textContent = ed.toc ? 'Sumário' : 'Página ' + (ed.i + 1) + ' de ' + c.paginas.length;
+    $('#pg-prev').disabled = ed.toc;
+    $('#pg-next').disabled = !ed.toc && ed.i === c.paginas.length - 1;
+    $('#pg-new').disabled = ed.toc;
+    $('#pg-del').disabled = ed.toc || c.paginas.length <= 1;
     $('#pg-del').title = c.paginas.length <= 1 ? 'Um caderno precisa ter pelo menos uma página' : 'Excluir página atual';
     renderTabs();
   }
 
-  // Carrega a página atual na folha: fundo, zonas, objetos, recuo, indicadores e endereço, deixando a tela fiel aos dados e ao link compartilhável (H1, H4).
+  // Carrega a página atual na folha: modo de escrita, fundo, zonas, objetos, recuo, indicadores e endereço, e pisca o título aberto pelo sumário, deixando a tela fiel aos dados (H1, H4).
   function loadPage(focus) {
     const c = ed.c, p = c.paginas[ed.i];
     p.postits = p.postits || [];
     p.imagens = p.imagens || [];
+    ed.toc = false;
+    sheet.hidden = false;
+    tocSheet.hidden = true;
+    $('#toolbar-wrap').hidden = false;
     const folha = p.folha || c.folha || 'pauta';
     sheet.className = 'sheet f-' + folha;
     $('#tb-folha').value = folha;
@@ -1724,6 +1864,7 @@
     ZONES.summary.innerHTML = sanitize(p.summary);
     $('#sheet-crumb').textContent = ed.m.nome + ' / ' + c.titulo;
     history.replaceState(null, '', '#/caderno/' + c.id + '/' + (ed.i + 1));
+    document.title = c.titulo + ' | Mochila Inteligente';
     savedRange = null;
     activeZone = null;
     hold = false;
@@ -1732,33 +1873,44 @@
     reflowAll(true);
     renderObjects();
     if (focus) ZONES.notes.focus();
+    if (pendingSec && pendingSec.i === ed.i) flashSection(pendingSec.ord);
+    pendingSec = null;
   }
 
-  // Abre o caderno pelo id e página da rota, devolvendo falso se não existir, para o roteador avisar em vez de mostrar tela vazia (H9).
-  function openEditor(id, pageIdx) {
+  // Abre o caderno pelo id e página da rota, ou direto no sumário, devolvendo falso se não existir, para o roteador avisar em vez de mostrar tela vazia (H9).
+  function openEditor(id, pageIdx, toc) {
     const found = findCaderno(id);
     if (!found) return false;
-    ed = { m: found.m, c: found.c, i: 0 };
+    ed = { m: found.m, c: found.c, i: 0, toc: false };
     ed.c.paginas.forEach(p => { if (!p.id) p.id = uid(); });
     ed.i = clamp(pageIdx || 0, 0, ed.c.paginas.length - 1);
     $('#ed-titulo').textContent = ed.c.titulo;
     $('#ed-materia').textContent = ed.m.nome;
     setSaveStatus('Salvo');
     loadPage(false);
+    if (toc) showToc();
     return true;
   }
 
-  // Troca de página salvando a atual antes, para a navegação nunca custar texto, e mantendo um limite seguro de índices (H5).
+  // Troca de página salvando a atual antes, inclusive saindo do sumário, para a navegação nunca custar texto, e mantendo um limite seguro de índices (H5).
   function goPage(i) {
-    if (!ed || i < 0 || i >= ed.c.paginas.length || i === ed.i) return;
+    if (!ed || i < 0 || i >= ed.c.paginas.length || (i === ed.i && !ed.toc)) return;
     flushSave();
     ed.i = i;
     loadPage(false);
   }
 
+  // Anda uma página para trás ou para frente tratando o sumário como a página zero do caderno, para anterior e próxima sempre fazerem o que o usuário espera (H4 consistência).
+  function stepPage(d) {
+    if (!ed) return;
+    if (ed.toc) { if (d > 0) goPage(0); return; }
+    if (ed.i + d < 0) { showToc(); return; }
+    goPage(ed.i + d);
+  }
+
   // Cria uma página nova logo depois da atual, com a folha padrão do caderno, e leva o cursor a ela, pronta para escrever (H7, H1).
   function newPage() {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     flushSave();
     ed.c.paginas.splice(ed.i + 1, 0, blankPage(ed.c));
     ed.i += 1;
@@ -1769,7 +1921,7 @@
 
   // Exclui a página atual oferecendo Desfazer, mantendo sempre ao menos uma página no caderno, igual ao padrão do armário (H3, H5).
   function deletePage() {
-    if (!ed || ed.c.paginas.length <= 1) return;
+    if (!ed || ed.toc || ed.c.paginas.length <= 1) return;
     flushSave();
     const c = ed.c, at = ed.i;
     const [removed] = c.paginas.splice(at, 1);
@@ -1786,14 +1938,14 @@
     });
   }
 
-  $('#pg-prev').addEventListener('click', () => goPage(ed.i - 1));
-  $('#pg-next').addEventListener('click', () => goPage(ed.i + 1));
+  $('#pg-prev').addEventListener('click', () => stepPage(-1));
+  $('#pg-next').addEventListener('click', () => stepPage(1));
   $('#pg-new').addEventListener('click', newPage);
   $('#pg-del').addEventListener('click', deletePage);
 
   // Troca o fundo só da página atual e recusa a troca se o texto não couber no novo layout, explicando o motivo e mantendo o fundo anterior (H5, H9).
   $('#tb-folha').addEventListener('change', e => {
-    if (!ed) return;
+    if (!ed || ed.toc) return;
     const p = curPage();
     const before = p.folha || ed.c.folha || 'pauta', next = e.target.value;
     sheet.className = 'sheet f-' + next;
@@ -1807,8 +1959,182 @@
     p.folha = next;
     reflowAll(true);
     saveData();
+    updateTocBadge();
     const hidden = before === 'cornell' && next !== 'cornell' && (ZONES.cue.innerText.trim() || ZONES.summary.innerText.trim());
     toast('Fundo alterado para ' + FOLHAS[next] + '.' + (hidden ? ' Os tópicos e o resumo ficam guardados e voltam no Cornell.' : ''));
+  });
+
+  // ---------- Exportação em PDF ----------
+
+  // Guarda a área de impressão, o diálogo, o formulário e o estado da impressão em andamento, usados por todas as funções de exportação.
+  const printRoot = $('#print-root');
+  const dlgPdf = $('#dlg-pdf');
+  const fp = $('#form-pdf');
+  let printing = false;
+  let printTimer;
+
+  // Calcula as páginas a exportar pelo escopo escolhido (todas, atual ou intervalo) e diz se o plano é válido, base do resumo e da geração (H1, H5).
+  function pdfPlan() {
+    const n = ed.c.paginas.length, esc = fp.elements.escopo.value;
+    let from = 0, to = n - 1;
+    if (esc === 'atual') from = to = ed.toc ? 0 : ed.i;
+    if (esc === 'intervalo') { from = Number(fp.elements.de.value) - 1; to = Number(fp.elements.ate.value) - 1; }
+    const valid = Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to < n && from <= to;
+    return { from, to, valid };
+  }
+
+  // Sincroniza o formulário: habilita o intervalo só quando escolhido, sugere valores iniciais e reescreve o resumo do que será exportado, para o usuário ver o efeito antes de confirmar (H1, H5, H6).
+  function syncPdfForm() {
+    const n = ed.c.paginas.length;
+    const range = fp.elements.escopo.value === 'intervalo';
+    fp.elements.de.disabled = !range;
+    fp.elements.ate.disabled = !range;
+    if (range && !fp.elements.de.value) { fp.elements.de.value = ed.toc ? 1 : ed.i + 1; fp.elements.ate.value = n; }
+    const plan = pdfPlan();
+    const toc = fp.elements.toc.checked && !fp.elements.toc.disabled;
+    $('#pdf-resumo').textContent = plan.valid
+      ? plural(plan.to - plan.from + 1, 'página', 'páginas') + ' (da ' + (plan.from + 1) + ' à ' + (plan.to + 1) + ')' + (toc ? ', com sumário.' : '.')
+      : 'Digite um intervalo válido para ver o resumo.';
+  }
+
+  // Abre o diálogo de exportação com valores sensatos: todas as páginas, sumário ligado quando há títulos e opção da página atual desativada no sumário, poupando decisões ao usuário (H5, H6, H7).
+  function openPdfDialog() {
+    if (!ed || $('dialog[open]')) return;
+    flushSave();
+    const n = ed.c.paginas.length;
+    fp.reset();
+    $$('[data-rule]', fp).forEach(i => setFieldError(i, ''));
+    fp.elements.de.max = n;
+    fp.elements.ate.max = n;
+    fp.elements.de.value = '';
+    fp.elements.ate.value = '';
+    $('#pdf-escopo-atual').disabled = ed.toc;
+    const entries = tocEntries();
+    fp.elements.toc.disabled = entries.length === 0;
+    fp.elements.toc.checked = entries.length > 0;
+    $('#pdf-toc-hint').textContent = entries.length
+      ? plural(entries.length, 'título de seção será listado', 'títulos de seção serão listados') + ' com links para as páginas.'
+      : 'Marque linhas como título de seção para gerar o sumário.';
+    syncPdfForm();
+    dlgPdf.showModal();
+  }
+
+  $('#btn-pdf').addEventListener('click', openPdfDialog);
+  fp.addEventListener('change', e => {
+    syncPdfForm();
+    if (e.target.name === 'escopo' && e.target.value === 'intervalo') fp.elements.de.focus();
+  });
+  fp.addEventListener('input', e => {
+    syncPdfForm();
+    if (e.target.name === 'de' && fp.elements.ate.getAttribute('aria-invalid') === 'true') checkField(fp.elements.ate);
+  });
+
+  // Cria a versão estática de um objeto para o PDF, sem barra, edição nem arrasto, na mesma posição e tamanho da tela, para post-its e imagens saírem exatamente onde estão (requisito de fidelidade).
+  function staticObj(o) {
+    const isPit = o.tipo === 'postit';
+    const el = h('div', { class: 'obj ' + (isPit ? 'pit' : 'img-obj') });
+    el.style.cssText = 'left:' + o.x + 'px;top:' + o.y + 'px;width:' + o.w + 'px;height:' + o.h + 'px;pointer-events:none;';
+    if (isPit) {
+      el.style.background = o.cor;
+      const t = h('div', { class: 'pit-text' });
+      t.textContent = o.texto;
+      el.append(h('div', { class: 'pit-grip' }, h('span', { class: 'grip-dots' })), t);
+    } else {
+      el.append(h('img', { src: o.src, alt: '' }));
+      if (o.fita) el.append(h('span', { class: 'obj-tape', style: 'background:' + o.fita }));
+    }
+    return el;
+  }
+
+  // Monta uma página do PDF a partir dos dados salvos, com cabeçalho, zonas, fundo próprio e objetos, usando o molde limpo, para o PDF refletir a página e não a tela (requisito de fidelidade).
+  function printPageEl(i) {
+    const c = ed.c, p = c.paginas[i], folha = p.folha || c.folha || 'pauta';
+    const s = shellTpl.cloneNode(true);
+    s.className = 'sheet f-' + folha;
+    s.id = 'pdf-p-' + (i + 1);
+    const [crumb, num] = $('.sheet-head', s).children;
+    crumb.textContent = ed.m.nome + ' / ' + c.titulo;
+    num.textContent = 'Página ' + (i + 1);
+    const zs = { cue: $('.zone-cue', s), notes: $('.zone-notes', s), summary: $('.zone-summary', s) };
+    zs.cue.innerHTML = sanitize(p.cue);
+    zs.notes.innerHTML = sanitize(p.html);
+    zs.summary.innerHTML = sanitize(p.summary);
+    const lay = $('.obj-layer', s);
+    (p.postits || []).forEach(o => lay.append(staticObj(normalizeObj(o, 'postit'))));
+    (p.imagens || []).forEach(o => lay.append(staticObj(normalizeObj(o, 'imagem'))));
+    return { wrap: h('section', { class: 'pdf-page' }, s), s, zs, p };
+  }
+
+  // Monta uma página de sumário para o PDF com links internos para as páginas exportadas, para o índice continuar clicável no arquivo (requisito de links clicáveis).
+  function printTocEl(chunk) {
+    const s = tocTpl.cloneNode(true);
+    $('.toc-crumb', s).textContent = ed.m.nome + ' / ' + ed.c.titulo;
+    fillToc($('.toc-list', s), chunk, e => '#pdf-p-' + e.pagina);
+    return h('section', { class: 'pdf-page' }, s);
+  }
+
+  // Constrói todo o conteúdo do PDF fora da tela: classe de tema claro, papel, escala para caber na folha, sumário filtrado pelo intervalo, páginas, recuo do texto e fonte dos post-its (requisitos de PDF).
+  function buildPrint({ from, to, toc, lines, land }) {
+    const pw = land ? 1122 : 794, ph = land ? 794 : 1122;
+    const sheetH = sheet.offsetHeight || 706;
+    printRoot.replaceChildren();
+    printRoot.className = 'print-light ' + (land ? 'pdf-land' : 'pdf-port') + (lines ? '' : ' no-lines');
+    printRoot.style.setProperty('--k', Math.min((pw - 24) / 780, (ph - 24) / sheetH).toFixed(4));
+    const entries = toc ? tocEntries().filter(e => e.pagina - 1 >= from && e.pagina - 1 <= to) : [];
+    for (let i = 0; i < entries.length; i += 17) printRoot.append(printTocEl(entries.slice(i, i + 17)));
+    const built = [];
+    for (let i = from; i <= to; i++) built.push(printPageEl(i));
+    printRoot.append(...built.map(b => b.wrap));
+    built.forEach(b => {
+      applyFlow(b.zs, objectsOf(b.p), true);
+      $$('.pit-text', b.s).forEach(fitText);
+    });
+  }
+
+  // Encerra a impressão limpando a área de PDF e o tamanho de papel, chamado ao fechar a janela de impressão ou após um tempo limite, para não deixar páginas escondidas na memória (H5, performance).
+  function endPrint() {
+    if (!printing) return;
+    printing = false;
+    clearTimeout(printTimer);
+    document.documentElement.classList.remove('is-printing');
+    printRoot.replaceChildren();
+    $('#print-page-style').textContent = '';
+  }
+  window.addEventListener('afterprint', endPrint);
+
+  // Gera o PDF: monta as páginas, define o papel A4, ativa o modo de impressão e abre a janela do navegador, avisando antes qual opção escolher, e recuperando-se se algo falhar (H1, H9, H10).
+  async function exportPdf(opts) {
+    try {
+      buildPrint(opts);
+      $('#print-page-style').textContent = '@page { size: A4 ' + (opts.land ? 'landscape' : 'portrait') + '; margin: 0; }';
+      document.documentElement.classList.add('is-printing');
+      printing = true;
+      toast('Preparando o PDF. Na janela de impressão, escolha Salvar como PDF.');
+      clearTimeout(printTimer);
+      printTimer = setTimeout(endPrint, 180000);
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      window.print();
+    } catch {
+      endPrint();
+      toast('Não foi possível preparar o PDF. Tente de novo ou exporte um intervalo menor.');
+    }
+  }
+
+  // Valida o formulário, fecha o diálogo e inicia a exportação com as escolhas feitas, sem dar passo em falso com intervalos inválidos (H5, H9).
+  fp.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validateForm(fp)) return;
+    const plan = pdfPlan();
+    if (!plan.valid) return;
+    dlgPdf.close();
+    await exportPdf({
+      from: plan.from,
+      to: plan.to,
+      toc: fp.elements.toc.checked && !fp.elements.toc.disabled,
+      lines: fp.elements.linhas.checked,
+      land: fp.elements.papel.value === 'land'
+    });
   });
 
   // ---------- Rotas por hash ----------
@@ -1817,10 +2143,10 @@
   const ROUTES = { '': 'landing', '/': 'landing', '/login': 'auth', '/cadastro': 'auth', '/mochila': 'app' };
   let firstRender = true;
 
-  // Interpreta a rota, incluindo a do caderno com número de página opcional, para cada página ter um endereço que dá para guardar e reabrir (H1, H3).
+  // Interpreta a rota, incluindo a do caderno com número de página ou sumário, para cada página ter um endereço que dá para guardar e reabrir (H1, H3).
   function parseRoute(path) {
-    const m = /^\/caderno\/([^/]+)(?:\/(\d+))?$/.exec(path);
-    if (m) return { view: 'editor', id: m[1], page: Number(m[2] || 1) - 1 };
+    const m = /^\/caderno\/([^/]+)(?:\/(\d+|sumario))?$/.exec(path);
+    if (m) return { view: 'editor', id: m[1], toc: m[2] === 'sumario', page: m[2] && m[2] !== 'sumario' ? Number(m[2]) - 1 : 0 };
     return { view: ROUTES[path] };
   }
 
@@ -1839,19 +2165,20 @@
     if (view === 'auth' && session) { location.hash = '#/mochila'; return; }
 
     if (ed) { flushSave(); if (view !== 'editor') ed = null; }
+    if (view !== 'editor') pendingSec = null;
     $$('dialog[open]').forEach(d => d.close());
     $$('[data-view]').forEach(el => { el.hidden = el.dataset.view !== view; });
     const screen = $('[data-view]:not([hidden])');
 
     if (view === 'editor') {
       loadData();
-      if (!openEditor(route.id, route.page)) {
+      if (!openEditor(route.id, route.page, route.toc)) {
         toast('Não encontramos esse caderno. Ele pode ter sido excluído.');
         location.hash = '#/mochila';
         return;
       }
     }
-    document.title = view === 'editor' ? ed.c.titulo + ' | Mochila Inteligente' : screen.dataset.title;
+    document.title = view === 'editor' ? (ed.toc ? 'Sumário | ' : '') + ed.c.titulo + ' | Mochila Inteligente' : screen.dataset.title;
 
     if (view === 'auth') {
       const mode = path === '/cadastro' ? 'cadastro' : 'login';
@@ -1881,12 +2208,17 @@
 
   // ---------- Atalhos de teclado ----------
 
-  // Volta ao início com Esc no acesso, abre a busca com / ou Ctrl+K no armário e troca de página com Alt+PageUp ou PageDown no caderno (H3, H7 eficiência).
+  // Volta ao início com Esc no acesso, abre a busca com / ou Ctrl+K no armário, troca de página com Alt+PageUp ou PageDown e abre a exportação com Ctrl+P no caderno (H3, H7 eficiência).
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('[data-view="auth"]').hidden) location.hash = '#/';
+    if (ed && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      e.preventDefault();
+      openPdfDialog();
+      return;
+    }
     if (ed && e.altKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
       e.preventDefault();
-      goPage(ed.i + (e.key === 'PageDown' ? 1 : -1));
+      stepPage(e.key === 'PageDown' ? 1 : -1);
       return;
     }
     if ($('[data-view="app"]').hidden) return;
