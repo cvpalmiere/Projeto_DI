@@ -244,15 +244,15 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 
 /* Reserva a caixa que ocupa o tamanho da folha já reduzido pela escala, para o layout ao redor acompanhar a folha em telas pequenas (UX responsivo). */
 .sheet-fit { position: relative; flex: none; }
-.sheet-scale { width: 780px; transform-origin: top left; }
+.sheet-scale { width: 793px; transform-origin: top left; }
 
-/* Desenha a folha com 780px fixos e altura de linhas inteiras, sem rolagem infinita, para o texto quebrar igual em qualquer aparelho (H2, Baseline Lock). */
-.sheet { --rows: 20; position: relative; width: 780px; padding-bottom: var(--row); background: var(--paper); border: 1px solid var(--line); border-radius: 1rem 0 0 1rem; box-shadow: 0 24px 50px -28px rgba(58, 42, 28, .55); }
+/* Fixa a folha no tamanho A4 (793 por 1122 px, igual a 210 por 297 mm), com 33 linhas de 32px, para tela e PDF terem exatamente a mesma folha e o texto quebrar igual em qualquer aparelho (H2, Baseline Lock). */
+.sheet { --rows: 33; position: relative; box-sizing: border-box; width: 793px; height: 1122px; padding-bottom: var(--row); background: var(--paper); border: 1px solid var(--line); border-radius: 1rem 0 0 1rem; box-shadow: 0 24px 50px -28px rgba(58, 42, 28, .55); }
 
 /* Cria o cabeçalho de uma linha com o caminho do caderno e o número da página, orientando o usuário sobre onde está (H1 visibilidade). */
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: var(--row); padding: 0 1.1rem; font-size: .7rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
 
-/* Monta a área de escrita em grade com altura de exatas 20 linhas de 32px, base para todas as folhas e para o Cornell (H4). */
+/* Monta a área de escrita em grade com altura de exatas 33 linhas de 32px, base para todas as folhas e para o Cornell (H4). */
 .sheet-body { position: relative; display: grid; grid-template-columns: 1fr; grid-template-rows: calc(var(--row) * var(--rows)); }
 
 /* Define as zonas editáveis com line-height imutável de 32px, fonte base de 18px e overflow oculto, para o texto nunca fugir da pauta (Baseline Lock). */
@@ -284,12 +284,12 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .f-pauta .sheet-body::before, .toc-body::before { content: ""; position: absolute; top: 0; bottom: 0; left: 44px; width: 2px; background: color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; z-index: 1; }
 .f-pauta .zone-notes { padding-left: 64px; }
 
-/* Monta o método Cornell com coluna de tópicos de 30%, notas à direita e resumo nas 5 últimas linhas, tudo em múltiplos de 32px (H2 mundo real). */
-.f-cornell .sheet-body { grid-template-columns: 30% 1fr; grid-template-rows: calc(var(--row) * 15) calc(var(--row) * 5); }
+/* Monta o método Cornell com coluna de tópicos de 30%, notas à direita e resumo nas 7 últimas linhas da folha A4, tudo em múltiplos de 32px (H2 mundo real). */
+.f-cornell .sheet-body { grid-template-columns: 30% 1fr; grid-template-rows: calc(var(--row) * 26) calc(var(--row) * 7); }
 .f-cornell .zone-cue, .f-cornell .zone-summary { display: block; }
 .f-cornell .zone-notes { grid-column: 2; grid-row: 1; }
-.f-cornell .sheet-body::before { content: ""; position: absolute; left: 30%; top: 0; width: 2px; height: calc(var(--row) * 15); background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
-.f-cornell .sheet-body::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--row) * 15); height: 2px; background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
+.f-cornell .sheet-body::before { content: ""; position: absolute; left: 30%; top: 0; width: 2px; height: calc(var(--row) * 26); background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
+.f-cornell .sheet-body::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--row) * 26); height: 2px; background: var(--latte); opacity: .7; pointer-events: none; z-index: 1; }
 
 /* Cria o marcador circular da checklist com pseudo-elemento alinhado à linha de base e recua o texto, sem inserir nós que quebrem a edição (H2, H5). */
 .zone .chk-line { position: relative; padding-left: 32px; }
@@ -313,7 +313,7 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .tb-color { width: 1.8rem; height: 1.8rem; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 
 /* Empilha as abas numeradas na lateral com rolagem própria, cada uma na cor derivada da capa, para acesso rápido a qualquer página (H7, H6). */
-.tabs { position: relative; display: flex; flex-direction: column; gap: 6px; width: 2.7rem; max-height: calc(var(--row) * 22); overflow-y: auto; padding: 1.25rem 0 .5rem; scrollbar-width: none; }
+.tabs { position: relative; display: flex; flex-direction: column; gap: 6px; width: 2.7rem; max-height: calc(100vh - 12rem); overflow-y: auto; padding: 1.25rem 0 .5rem; scrollbar-width: none; }
 .tab-page { position: relative; flex: none; display: grid; place-items: center; width: 2.2rem; height: 2.6rem; margin-left: -2px; border-radius: 0 .8rem .8rem 0; background: var(--tab); font-size: .8rem; font-weight: 800; cursor: pointer; box-shadow: 2px 3px 6px -3px rgba(0, 0, 0, .4); transition: width .15s, transform .15s; }
 .tab-page:hover { width: 2.5rem; }
 
@@ -381,8 +381,8 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 .toc-body { position: relative; height: calc(var(--row) * var(--rows)); padding: 0 28px 0 64px; overflow: hidden; color: var(--ink); }
 .toc-heading { height: calc(var(--row) * 2); margin: 0; font-size: 24px; font-weight: 800; line-height: var(--row); }
 
-/* Limita a lista a 18 linhas com rolagem própria, para cadernos com muitos títulos continuarem navegáveis sem quebrar a folha (H5). */
-.toc-list { max-height: calc(var(--row) * 18); overflow-y: auto; scrollbar-width: thin; }
+/* Limita a lista a 30 linhas com rolagem própria, para cadernos com muitos títulos continuarem navegáveis sem quebrar a folha A4 (H5). */
+.toc-list { max-height: calc(var(--row) * 30); overflow-y: auto; scrollbar-width: thin; }
 
 /* Cria cada linha do sumário como link de uma linha da pauta, com título, pontilhado e número da página, igual aos índices impressos (H2, H6). */
 .toc-row { display: flex; align-items: baseline; gap: .5rem; height: var(--row); line-height: var(--row); font-size: 16px; font-weight: 600; color: inherit; text-decoration: none; }
@@ -400,14 +400,12 @@ mark { background: var(--honey); color: #3A2A1C; border-radius: .2rem; padding: 
 /* Mantém o conteúdo do PDF fora da tela mas com layout calculado, para medir recuos e fontes dos post-its antes de imprimir (requisito de fidelidade). */
 #print-root { position: fixed; left: -10000px; top: 0; visibility: hidden; }
 
-/* Define cada página do PDF com tamanho de papel A4 em milímetros, paisagem ou retrato, e quebra de página depois dela, para cada folha do caderno ocupar uma página (requisito de PDF). */
-#print-root .pdf-page { position: relative; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
-#print-root.pdf-land .pdf-page { width: 297mm; height: 209.5mm; }
-#print-root.pdf-port .pdf-page { width: 210mm; height: 296.5mm; }
+/* Define cada página do PDF com exatos 793 por 1122 px (A4), sem transformação nem posição absoluta, e quebra de página depois dela, para o navegador nunca fatiar a folha entre duas páginas (requisito de PDF em A4). */
+#print-root .pdf-page { position: relative; width: 793px; height: 1122px; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
 #print-root .pdf-page:last-child { break-after: auto; page-break-after: auto; }
 
-/* Centraliza a folha na página do PDF e a escala por uma variável calculada no JavaScript, mantendo texto vetorial e posições exatas de objetos (requisito de fidelidade). */
-#print-root .sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--k, 1)); transform-origin: center; box-shadow: none; border-radius: 0; }
+/* Imprime a folha em tamanho real, sem sombra, cantos nem borda visível, mas mantendo a borda transparente para o texto quebrar idêntico ao da tela (requisito de fidelidade). */
+#print-root .sheet { margin: 0; box-shadow: none; border-radius: 0; border-color: transparent; transform: none; }
 
 /* Força a impressão das cores de fundo, como marca-texto, post-its e pauta, que os navegadores costumam apagar por padrão (requisito de preservar marca-texto). */
 #print-root, #print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

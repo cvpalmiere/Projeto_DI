@@ -496,7 +496,7 @@
   <main class="px-3 sm:px-5 py-8">
     <!-- Mostra a folha ao lado das abas numeradas, que levam a qualquer página com um clique, como as divisórias de um caderno (H2, H7). -->
     <div id="stage" class="stage mx-auto" style="width: fit-content; max-width: 100%">
-      <!-- Envolve a folha numa caixa que acompanha o tamanho reduzido em telas pequenas, mantendo a folha com 780px lógicos sempre iguais (UX responsivo). -->
+      <!-- Envolve a folha A4 de 793 por 1122 px numa caixa que acompanha o zoom escolhido, mantendo a folha sempre com as mesmas medidas lógicas (UX responsivo). -->
       <div id="sheet-fit" class="sheet-fit">
         <div id="sheet-scale" class="sheet-scale">
           <article id="sheet" class="sheet f-pauta" aria-label="Página do caderno">
@@ -532,10 +532,18 @@
       <span class="w-px h-6 bg-[var(--line)] mx-1" aria-hidden="true"></span>
       <button id="pg-new" class="btn btn-primary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-fileplus"/></svg>Nova página</button>
       <button id="pg-del" class="btn btn-ghost" type="button" aria-label="Excluir página atual" title="Excluir página atual"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="hidden sm:inline">Excluir</span></button>
+      <span class="w-px h-6 bg-[var(--line)] mx-1" aria-hidden="true"></span>
+      <!-- Deixa o usuário escolher como ver a folha A4, que é alta: ajustada à largura, página inteira ou tamanho real, e lembra a escolha (H3 controle, H7 flexibilidade). -->
+      <label for="zoom" class="sr-only">Zoom da folha</label>
+      <select id="zoom" class="input tb-sel" title="Zoom da folha A4">
+        <option value="largura">Ajustar à largura</option>
+        <option value="pagina">Página inteira</option>
+        <option value="cem">Tamanho real</option>
+      </select>
     </div>
   </main>
 
-  <!-- Abre a configuração do PDF em diálogo nativo, com páginas, sumário, pauta e papel, validando o intervalo antes de gerar para evitar arquivos errados (H5, H9, requisito do modal). -->
+  <!-- Abre a configuração do PDF em diálogo nativo, com páginas, sumário e pauta, na folha A4 fixa, validando o intervalo antes de gerar para evitar arquivos errados (H5, H9, requisito do modal). -->
   <dialog id="dlg-pdf" class="dlg" aria-labelledby="dlg-pdf-titulo">
     <form id="form-pdf" class="p-6 space-y-5" novalidate>
       <div class="flex items-center justify-between gap-3">
@@ -578,18 +586,10 @@
         </label>
       </fieldset>
 
-      <div>
-        <label for="pdf-papel" class="block text-sm font-semibold mb-1">Papel</label>
-        <select id="pdf-papel" class="input" name="papel">
-          <option value="land">A4 paisagem (melhor encaixe da folha)</option>
-          <option value="port">A4 retrato</option>
-        </select>
-      </div>
-
       <!-- Resume em tempo real o que será exportado e explica o passo final de salvar como PDF, mantendo o usuário informado antes de confirmar (H1, H10). -->
       <div class="rounded-2xl p-4 text-sm bg-sage-soft">
         <p id="pdf-resumo" class="font-bold" role="status"></p>
-        <p class="mt-1 text-xs text-muted">O fundo sai sempre claro, para não gastar tinta. Na janela de impressão que vai abrir, escolha Salvar como PDF. Use o Chrome ou o Edge para manter os links do sumário clicáveis.</p>
+        <p class="mt-1 text-xs text-muted">Cada folha sai em A4 retrato, no mesmo tamanho da tela, e o fundo sai sempre claro, para não gastar tinta. Na janela de impressão que vai abrir, escolha Salvar como PDF e deixe a escala em 100%. Use o Chrome ou o Edge para manter os links do sumário clicáveis.</p>
       </div>
 
       <div class="flex justify-end gap-2">

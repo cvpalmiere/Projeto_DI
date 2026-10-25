@@ -819,6 +819,11 @@
   // Fixa a altura da linha em 32px e calcula o teto da fonte em 75% dela (24px), a trava matemática que impede letras de invadir a linha de cima (Baseline Lock).
   const ROW = 32;
   const MAX_FONT = Math.floor(ROW * 0.75);
+
+  // Fixa a folha no tamanho A4 a 96 dpi (793 por 1122 px) com 33 linhas de escrita, o mesmo tamanho na tela e no PDF, para nada mudar de lugar ao exportar (requisito de folha A4).
+  const SHEET_W = 793;
+  const SHEET_H = 1122;
+  const ROWS = 33;
   const SIZES = [12, 14, 16, 18, 20, 22, 24];
 
   // Define a barreira de 38px (cerca de 1 cm) entre objeto e texto e a largura mínima de 120px que o texto precisa ter, senão a linha inteira é liberada ao objeto (requisito de 1 cm).
@@ -1402,7 +1407,7 @@
   // ---------- Objetos: post-its e imagens com snap-to-line ----------
 
   // Calcula o tamanho útil da área de escrita, com valores de reserva quando a folha está escondida, para limitar posições e tamanhos sem quebrar no sumário (H5 prevenção de erros).
-  const dims = () => ({ W: bodyEl.clientWidth || 778, H: bodyEl.clientHeight || ROW * 20 });
+  const dims = () => ({ W: bodyEl.clientWidth || SHEET_W - 2, H: bodyEl.clientHeight || ROW * ROWS });
 
   // Devolve a página aberta e a lista dos seus objetos, para as demais funções não repetirem a mesma consulta (legibilidade).
   const curPage = () => ed.c.paginas[ed.i];
@@ -1699,12 +1704,27 @@
     addImageFile(f, { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale });
   });
 
-  // Ajusta a escala da folha ou do sumário de 780px para caber na largura da tela e reserva o espaço já reduzido, mantendo o texto quebrando igual em qualquer aparelho (UX responsivo, Baseline Lock).
+  // Guarda o modo de zoom escolhido (largura, página inteira ou 100%) para a folha A4, alta numa tela, caber como o usuário preferir mesmo ao reabrir o caderno (H3 controle, H7 flexibilidade).
+  let zoomMode = store.get('mochila_zoom', 'largura');
+  if (!['largura', 'pagina', 'cem'].includes(zoomMode)) zoomMode = 'largura';
+  $('#zoom').value = zoomMode;
+  $('#zoom').addEventListener('change', e => {
+    zoomMode = e.target.value;
+    store.set('mochila_zoom', zoomMode);
+    if (ed) fitSheet();
+  });
+
+  // Ajusta a escala da folha A4 ou do sumário conforme o zoom escolhido e reserva o espaço já reduzido, mantendo o texto quebrando igual em qualquer aparelho (UX responsivo, Baseline Lock).
   function fitSheet() {
-    const avail = document.documentElement.clientWidth - 40 - 48;
-    scale = Math.min(1, Math.max(0.3, avail / 780));
+    const availW = document.documentElement.clientWidth - 40 - 48;
+    const head = $('[data-view="editor"] header').offsetHeight || 150;
+    const availH = window.innerHeight - head - 110;
+    let s = Math.min(1, availW / SHEET_W);
+    if (zoomMode === 'pagina') s = Math.min(s, availH / SHEET_H);
+    if (zoomMode === 'cem') s = 1;
+    scale = clamp(s, 0.25, 1);
     scaleEl.style.transform = scale < 1 ? 'scale(' + scale + ')' : '';
-    fit.style.width = Math.round(780 * scale) + 'px';
+    fit.style.width = Math.round(SHEET_W * scale) + 'px';
     const visible = ed && ed.toc ? tocSheet : sheet;
     fit.style.height = Math.round(visible.offsetHeight * scale) + 'px';
   }
@@ -2073,15 +2093,12 @@
     return h('section', { class: 'pdf-page' }, s);
   }
 
-  // Constrói todo o conteúdo do PDF fora da tela: classe de tema claro, papel, escala para caber na folha, sumário filtrado pelo intervalo, páginas, recuo do texto e fonte dos post-its (requisitos de PDF).
-  function buildPrint({ from, to, toc, lines, land }) {
-    const pw = land ? 1122 : 794, ph = land ? 794 : 1122;
-    const sheetH = sheet.offsetHeight || 706;
+  // Constrói todo o conteúdo do PDF fora da tela: classe de tema claro, sumário filtrado pelo intervalo, uma folha A4 em tamanho real por página, recuo do texto e fonte dos post-its (requisitos de PDF).
+  function buildPrint({ from, to, toc, lines }) {
     printRoot.replaceChildren();
-    printRoot.className = 'print-light ' + (land ? 'pdf-land' : 'pdf-port') + (lines ? '' : ' no-lines');
-    printRoot.style.setProperty('--k', Math.min((pw - 24) / 780, (ph - 24) / sheetH).toFixed(4));
+    printRoot.className = 'print-light' + (lines ? '' : ' no-lines');
     const entries = toc ? tocEntries().filter(e => e.pagina - 1 >= from && e.pagina - 1 <= to) : [];
-    for (let i = 0; i < entries.length; i += 17) printRoot.append(printTocEl(entries.slice(i, i + 17)));
+    for (let i = 0; i < entries.length; i += 30) printRoot.append(printTocEl(entries.slice(i, i + 30)));
     const built = [];
     for (let i = from; i <= to; i++) built.push(printPageEl(i));
     printRoot.append(...built.map(b => b.wrap));
@@ -2102,11 +2119,11 @@
   }
   window.addEventListener('afterprint', endPrint);
 
-  // Gera o PDF: monta as páginas, define o papel A4, ativa o modo de impressão e abre a janela do navegador, avisando antes qual opção escolher, e recuperando-se se algo falhar (H1, H9, H10).
+  // Gera o PDF: monta as páginas, define o papel A4 retrato sem margens, ativa o modo de impressão e abre a janela do navegador, avisando antes qual opção escolher, e recuperando-se se algo falhar (H1, H9, H10).
   async function exportPdf(opts) {
     try {
       buildPrint(opts);
-      $('#print-page-style').textContent = '@page { size: A4 ' + (opts.land ? 'landscape' : 'portrait') + '; margin: 0; }';
+      $('#print-page-style').textContent = '@page { size: A4 portrait; margin: 0; }';
       document.documentElement.classList.add('is-printing');
       printing = true;
       toast('Preparando o PDF. Na janela de impressão, escolha Salvar como PDF.');
@@ -2132,8 +2149,7 @@
       from: plan.from,
       to: plan.to,
       toc: fp.elements.toc.checked && !fp.elements.toc.disabled,
-      lines: fp.elements.linhas.checked,
-      land: fp.elements.papel.value === 'land'
+      lines: fp.elements.linhas.checked
     });
   });
 
