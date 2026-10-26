@@ -19,7 +19,7 @@
       if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
     } catch (e) {}
   </script>
-  <!-- Importa o Tailwind via CDN para montar layout com classes utilitárias sem precisar de build, já que React é proibido. -->
+  <!-- Importa o Tailwind via CDN para montar layout com classes utilitárias sem precisar de build, mantendo o projeto em HTML, CSS e JavaScript puros. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Ativa o modo escuro por classe e registra a Montserrat como fonte padrão para o Tailwind seguir o tema do projeto (H4). -->
   <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Montserrat', 'Arial', 'sans-serif'] } } } };</script>
